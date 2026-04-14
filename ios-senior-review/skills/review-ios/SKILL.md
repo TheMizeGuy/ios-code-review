@@ -153,7 +153,7 @@ CONSTRAINTS:
 - Don't use fluff, hedges, or emojis.
 ```
 
-## Step 4: Dispatch the agent
+## Step 4: Dispatch
 
 **Standard mode** — use the Agent tool:
 - `subagent_type`: `"ios-senior-review:senior-ios-reviewer"`
@@ -161,18 +161,33 @@ CONSTRAINTS:
 - `prompt`: the prompt constructed in Step 3
 - Run in **foreground** (do NOT use `run_in_background: true`)
 
-**Team mode** — dispatch as **general-purpose, NOT as `ios-senior-review:ios-team-lead`**. Plugin-defined agent types do not reliably receive the Agent tool at runtime, and the team lead needs it to dispatch senior-ios-reviewer sub-agents.
+**Team mode** — YOU act as the team lead. Do NOT dispatch a subagent as team lead.
 
-1. Read the team lead's system prompt: `Read` the file `ios-senior-review/agents/ios-team-lead.md` (resolve relative to the plugin root, or use the absolute path from the plugin installation). Extract everything after the second `---` frontmatter delimiter (the full markdown body).
+**Why no team-lead subagent**: Subagents do NOT reliably receive the Agent tool at runtime (confirmed Claude Code platform limitation). The team lead's job is to dispatch 4-10 senior-ios-reviewer sub-agents -- a subagent can't do that. You (the main agent running this skill) DO have the Agent tool, so reviewer dispatches work from here.
 
-2. Dispatch as general-purpose with the system prompt prepended to the briefing:
-   - `description`: `"Team iOS review — lead dispatches 4-10 agents (mode: <mode>)"`
-   - `model`: `"opus"`
-   - `prompt`: `"<team lead system prompt from step 4.1>\n\n---\n\nBRIEFING:\n<prompt constructed in Step 3>"`
-   - Do NOT use `subagent_type`. The team lead instructions are loaded dynamically from the agent definition file.
-   - Run in **foreground** — team reviews take a long time (each sub-agent is a full review dispatched sequentially) and the user wants to see progress
+Team mode workflow (you execute all of it):
 
-The team lead runs its own orchestration internally. You as the skill orchestrator do not dispatch any sub-agents yourself in team mode — the team lead does all sub-agent dispatch.
+1. **Load the team lead's operating manual**: Read the plugin's `ios-senior-review/agents/ios-team-lead.md` (everything after the second `---` frontmatter delimiter). This is your manual for partitioning, dispatch rules, and consolidation format.
+
+2. **Map + partition the codebase** per the manual's Steps 1-3:
+   - Run the codebase mapping commands (file counts, target enumeration, framework detection)
+   - Apply the partitioning rules based on Swift file count
+   - Decide on 4-10 scopes, each non-overlapping
+   - Present the partition table to the user BEFORE dispatching anything
+
+3. **Dispatch senior-ios-reviewer sub-agents sequentially** (one at a time, NEVER parallel). For each scope:
+   - Build the scope-specific reviewer prompt per the manual's Step 5 template
+   - `Agent({ subagent_type: "ios-senior-review:senior-ios-reviewer", description: "Scope <N>: <name>", model: "opus", prompt: "<scope prompt>" })`
+   - Wait for the reviewer to return before dispatching the next
+   - Collect each reviewer's report
+
+4. **Consolidate the reports** per the manual's consolidation section:
+   - Deduplicate findings across boundaries
+   - Build the unified tables with reporter attribution
+   - Produce BOTH verdicts (submission + engineering) for the whole project
+   - Present the unified report verbatim to the user
+
+Do NOT run anything in the background. Team reviews take 20-100 minutes and the user wants to see each sub-agent complete in real time.
 
 ## Step 5: Present results
 
