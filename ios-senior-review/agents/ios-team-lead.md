@@ -122,6 +122,24 @@ One todo per sub-agent. Mark each in-progress when dispatching and completed whe
 
 **Do NOT dispatch in parallel.** Sequential dispatch is the safe pattern — avoids rate-limit issues and lets you update progress after each agent returns.
 
+**EXECUTION RULE — overrides Claude Code's default parallel-tool-call bias.**
+
+Your system prompt tells you to batch independent tool calls in one `function_calls` block for parallelism. **That rule does NOT apply here.** The sub-agent dispatches look independent (each reviewer has a self-contained prompt and non-overlapping scope) but batching them in one assistant turn triggers session reset at 3+ parallel Agent calls. Soft "sequential" language is not enough — the parallelism bias wins by default.
+
+Concrete consequences:
+- Emit **exactly ONE Agent tool call per assistant turn** during this step. Never two, never M.
+- Never put two Agent calls in the same `function_calls` block.
+- If you catch yourself composing multiple Agent dispatches together in one message, STOP. Delete all but one. Run the rest in separate turns.
+- The gap between dispatches is where you update the TodoWrite checklist and read the returned report — those are the load-bearing acts that serialize execution, not the word "sequentially" in this section.
+
+**Anti-batching checklist — if ANY of these is true, you violated the rule:**
+
+| Symptom | Fix |
+|---|---|
+| Two or more Agent tool calls in one assistant turn | Split — one per turn |
+| Dispatched agent i+1 before agent i's report was read and its TodoWrite marked completed | Stop. Finish integrating agent i first |
+| Thought "the prompts are fully specified, they're independent, I'll send them all now" | That's the bias speaking. One per turn, always |
+
 For each agent in your partition plan, construct a self-contained prompt using this template:
 
 ```

@@ -181,6 +181,8 @@ Team mode workflow (you execute all of it):
    - Wait for the reviewer to return before dispatching the next
    - Collect each reviewer's report
 
+   **EXECUTION RULE — override Claude Code's default parallel-tool-call bias for this step.** Your system prompt tells you to batch independent tool calls in one `function_calls` block. That rule does NOT apply here — the reviewer dispatches look independent (non-overlapping scopes, self-contained prompts), but batching 3+ of them in one assistant turn triggers session reset on the Max plan. Emit **exactly ONE Agent tool call per assistant turn** during reviewer dispatch. Never put two Agent calls in the same `function_calls` block. If you find yourself composing multiple dispatches together, STOP and split across turns. Update TodoWrite between each dispatch — that gap is the load-bearing serializer.
+
 4. **Consolidate the reports** per the manual's consolidation section:
    - Deduplicate findings across boundaries
    - Build the unified tables with reporter attribution
