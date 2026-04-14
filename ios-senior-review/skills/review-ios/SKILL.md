@@ -161,11 +161,16 @@ CONSTRAINTS:
 - `prompt`: the prompt constructed in Step 3
 - Run in **foreground** (do NOT use `run_in_background: true`)
 
-**Team mode** — use the Agent tool:
-- `subagent_type`: `"ios-senior-review:ios-team-lead"`
-- `description`: `"Team iOS review — lead dispatches 4-10 agents (mode: <mode>)"`
-- `prompt`: the prompt constructed in Step 3
-- Run in **foreground** — team reviews take a long time (each sub-agent is a full review dispatched sequentially) and the user wants to see progress
+**Team mode** — dispatch as **general-purpose, NOT as `ios-senior-review:ios-team-lead`**. Plugin-defined agent types do not reliably receive the Agent tool at runtime, and the team lead needs it to dispatch senior-ios-reviewer sub-agents.
+
+1. Read the team lead's system prompt: `Read` the file `ios-senior-review/agents/ios-team-lead.md` (resolve relative to the plugin root, or use the absolute path from the plugin installation). Extract everything after the second `---` frontmatter delimiter (the full markdown body).
+
+2. Dispatch as general-purpose with the system prompt prepended to the briefing:
+   - `description`: `"Team iOS review — lead dispatches 4-10 agents (mode: <mode>)"`
+   - `model`: `"opus"`
+   - `prompt`: `"<team lead system prompt from step 4.1>\n\n---\n\nBRIEFING:\n<prompt constructed in Step 3>"`
+   - Do NOT use `subagent_type`. The team lead instructions are loaded dynamically from the agent definition file.
+   - Run in **foreground** — team reviews take a long time (each sub-agent is a full review dispatched sequentially) and the user wants to see progress
 
 The team lead runs its own orchestration internally. You as the skill orchestrator do not dispatch any sub-agents yourself in team mode — the team lead does all sub-agent dispatch.
 
