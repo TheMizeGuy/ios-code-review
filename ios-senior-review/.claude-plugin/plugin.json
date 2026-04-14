@@ -1,0 +1,21 @@
+{
+  "name": "ios-senior-review",
+  "version": "0.1.0",
+  "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent that simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Reviews 12 dimensions across 4 tiers (App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI/UIKit patterns, deep linking & extensions, Swift quality, concurrency safety, performance & memory, platform integration). Returns evidence-tagged findings with submission and engineering verdicts.",
+  "author": {
+    "name": "mize"
+  },
+  "keywords": [
+    "ios",
+    "swift",
+    "swiftui",
+    "uikit",
+    "code-review",
+    "app-store",
+    "apple",
+    "privacy",
+    "accessibility",
+    "hig",
+    "submission-readiness"
+  ]
+}

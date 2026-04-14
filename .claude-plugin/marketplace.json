@@ -1,0 +1,30 @@
+{
+  "name": "ios-code-review",
+  "metadata": {
+    "description": "Senior iOS developer code review plugin for Claude Code. Dispatches an Opus 4.6 subagent that simulates BOTH the Apple App Review team and a senior Apple platform engineer \u2014 reviewing 12 dimensions across 4 tiers including App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, Swift 6 concurrency, and performance."
+  },
+  "owner": {
+    "name": "mize"
+  },
+  "plugins": [
+    {
+      "name": "ios-senior-review",
+      "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent that simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
+      "source": "./ios-senior-review",
+      "version": "0.1.0",
+      "category": "code-review",
+      "keywords": [
+        "ios",
+        "swift",
+        "swiftui",
+        "uikit",
+        "code-review",
+        "app-store",
+        "apple",
+        "privacy",
+        "accessibility",
+        "hig"
+      ]
+    }
+  ]
+}
