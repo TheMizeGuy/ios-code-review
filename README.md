@@ -61,7 +61,7 @@ Ends with two summary tables and two verdicts:
 # Clone into your Claude Code skills directory
 mkdir -p ~/.claude/skills
 cd ~/.claude/skills
-git clone https://github.com/TheMisinwormed/ios-code-review.git
+git clone https://github.com/TheMizeGuy/ios-code-review.git
 ```
 
 Claude Code auto-discovers skills in `~/.claude/skills/`. The skill will be available immediately in your next session.
@@ -74,7 +74,7 @@ To make the skill available only within a specific project:
 cd /path/to/your/ios-project
 mkdir -p .claude/skills
 cd .claude/skills
-git clone https://github.com/TheMisinwormed/ios-code-review.git
+git clone https://github.com/TheMizeGuy/ios-code-review.git
 ```
 
 ### Manual (any AI coding assistant)
