@@ -9,9 +9,9 @@
   "plugins": [
     {
       "name": "ios-senior-review",
-      "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent that simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
+      "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent. Standard mode: single agent simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Team mode (triggered by 'ios team review' or --team): a team-lead Opus 4.6 agent partitions the codebase into 4-10 non-overlapping scopes, dispatches senior-ios-reviewer sub-agents sequentially, and consolidates one unified report. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
       "source": "./ios-senior-review",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "code-review",
       "keywords": [
         "ios",

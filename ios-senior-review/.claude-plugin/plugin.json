@@ -1,10 +1,11 @@
 {
   "name": "ios-senior-review",
-  "version": "0.1.0",
-  "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent that simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Reviews 12 dimensions across 4 tiers (App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI/UIKit patterns, deep linking & extensions, Swift quality, concurrency safety, performance & memory, platform integration). Returns evidence-tagged findings with submission and engineering verdicts.",
+  "version": "0.2.0",
+  "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review. Two dispatch modes: STANDARD — single Opus 4.6 agent that simulates BOTH the Apple App Review team AND a senior Apple platform engineer. TEAM (triggered by the exact phrase 'ios team review' or `--team`) — a team-lead Opus 4.6 agent maps the codebase, partitions it into 4-10 non-overlapping scopes, and dispatches `senior-ios-reviewer` sub-agents sequentially, then consolidates findings into one unified report. Reviews 12 dimensions across 4 tiers (App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI/UIKit patterns, deep linking & extensions, Swift quality, concurrency safety, performance & memory, platform integration). Returns evidence-tagged findings ([R] rejection / [R?] likely / [W] warning / [~] recommendation / [+] praise) with submission and engineering verdicts.",
   "author": {
     "name": "mize"
   },
+  "license": "MIT",
   "keywords": [
     "ios",
     "swift",

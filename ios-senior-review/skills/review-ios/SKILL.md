@@ -1,21 +1,49 @@
 ---
 name: review-ios
 description: |-
-  Use this skill when the user asks for an iOS / Swift / SwiftUI / UIKit code review, says "review my iOS app", "check my Swift code", "audit this for App Store readiness", "will Apple reject this?", "TestFlight review", "pre-submission review", "iOS engineering review", or wants comprehensive review covering App Store compliance, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, deep linking, concurrency, or performance. Also use proactively before App Store submission, after a TestFlight rejection, or when finishing a substantial iOS feature. Dispatches the ios-senior-review:senior-ios-reviewer agent (Opus 4.6) which simulates BOTH the Apple App Review team AND a senior Apple platform engineer, citing the local 88-file iOS Development vault.
-argument-hint: '[path | file | "diff" | "staged" | "pr" | "all"] [--mode submission | --mode engineering]'
+  Use this skill when the user asks for an iOS / Swift / SwiftUI / UIKit code review, says "review my iOS app", "check my Swift code", "audit this for App Store readiness", "will Apple reject this?", "TestFlight review", "pre-submission review", "iOS engineering review", or wants comprehensive review covering App Store compliance, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, deep linking, concurrency, or performance. Supports two dispatch modes: STANDARD (default — single Opus 4.6 `senior-ios-reviewer` agent) and TEAM (requires the explicit phrase "ios team review" OR the `--team` flag — dispatches `ios-team-lead` which maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches a team of `senior-ios-reviewer` sub-agents sequentially, and consolidates findings into one unified report). Team mode ONLY triggers on the specific phrase "ios team review" — generic "team review" or "full audit" alone do NOT activate team mode. Use proactively before App Store submission, after a TestFlight rejection, or when finishing a substantial iOS feature.
+argument-hint: '[path | file | "diff" | "staged" | "pr" | "all"] [--mode submission | --mode engineering] [--team]'
 allowed-tools: Bash, Read, Grep, Glob, TodoWrite, Agent
 ---
 
 # iOS Senior Review
 
-You are coordinating a senior iOS code review on the user's behalf. Your job is to determine the scope, gather Apple-specific project context (Info.plist, entitlements, privacy manifest, build settings, deployment targets), and dispatch the `ios-senior-review:senior-ios-reviewer` agent (Opus 4.6) which does the actual review in two simultaneous modes — Apple App Review Simulation + Senior Engineering Review.
+You are coordinating a senior iOS code review on the user's behalf. Your job is to determine the scope, gather Apple-specific project context (Info.plist, entitlements, privacy manifest, build settings, deployment targets), and dispatch one of two Opus 4.6 agents:
 
-## Step 1: Parse arguments
+- **Standard review** (default) — dispatch `ios-senior-review:senior-ios-reviewer` directly. Single-agent review, fastest, best for small-to-medium codebases or narrow scopes.
+- **Team review** (`--team` flag) — dispatch `ios-senior-review:ios-team-lead`. The team lead maps the codebase, decides on 4-10 reviewers, partitions scope, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates findings. Best for large codebases (50+ Swift files), multi-target projects, or pre-submission audits where you want maximum dimension coverage.
 
-The user passed an argument string (may be empty). Two parts:
+Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`.
+
+## Step 1: Parse arguments and detect team trigger
+
+The user passed an argument string (may be empty). Three parts:
 
 1. **Scope** — first non-flag token (path, file, `diff`, `staged`, `pr`, `all`)
 2. **Mode flag** — optional `--mode submission` or `--mode engineering`. Default: both.
+3. **Team flag** — optional `--team`. Default: standard (single-agent). When present, dispatches `ios-team-lead` instead of `senior-ios-reviewer`.
+
+### Natural-language team trigger
+
+Team mode also activates from natural language, but **ONLY on the exact phrase "ios team review"** (case-insensitive). Detection rules:
+
+| User said | Team mode? |
+|---|---|
+| "ios team review" | YES |
+| "iOS team review of my app" | YES |
+| "do an iOS team review" | YES |
+| "ios team review all" | YES |
+| "team review" (no "ios") | NO — ambiguous, default to standard |
+| "full audit" | NO — ambiguous, default to standard |
+| "do a team review of my iOS app" | NO — "team review" isn't prefixed with "iOS" |
+| "thorough review" / "comprehensive review" / "deep review" | NO — default to standard |
+| `--team` flag passed explicitly | YES (the flag is unambiguous) |
+
+**Rationale:** "team review" is a generic phrase that could mean many things. Team mode requires the more explicit phrase "ios team review" to avoid accidentally dispatching a long-running multi-agent review when the user only wanted a thorough single-agent review. The `--team` flag remains available as the explicit opt-in.
+
+**If you're unsure whether the user wants team mode** (e.g., they said "thorough review of my iOS app"), default to standard mode and mention team mode as an option: "Running standard review. If you want team mode (4-10 agents, 20-100 min), say 'ios team review' or add `--team`."
+
+### Scope resolution
 
 | Argument | Meaning | How to resolve |
 |---|---|---|
@@ -30,7 +58,11 @@ For **App Store submission readiness** reviews, default to `all` even if the use
 
 If the resolved file list is **empty**: tell the user, suggest a different scope, stop.
 
-If it's **>100 files**: tell the user the count and ask whether to continue. iOS reviews benefit from full project context but cost more.
+If it's **>100 files**: tell the user the count. In STANDARD mode, ask whether to continue (iOS reviews benefit from full project context but cost more). In TEAM mode, 100+ files is the sweet spot — proceed.
+
+**Team mode scope handling:**
+- Team mode always uses a broad scope. If the user passed `diff` or `staged` with `--team`, expand to `all` automatically and tell the user (team review of just a diff defeats the purpose — it's for whole-project audits).
+- If the user passed `--team` with a codebase under 30 Swift files, tell the user team mode is overkill and offer to run standard review instead. Ask before dispatching.
 
 ## Step 2: Find the project root and Apple-specific artifacts (run in parallel)
 
@@ -50,14 +82,28 @@ If `git` is unavailable (not a repo) and the user asked for a diff-based scope, 
 
 ## Step 3: Construct the agent prompt
 
-Build a single self-contained prompt for the agent. Zero conversation context inheritance — bake everything in.
+Build a single self-contained prompt for the agent. Zero conversation context inheritance — bake everything in. The prompt structure is the same for standard and team modes; the difference is which `subagent_type` you dispatch and how the SCOPE field is filled.
+
+**Standard mode** — pass the resolved file list directly:
 
 ```
 SCOPE — review these files:
 <absolute path 1>
 <absolute path 2>
 ...
+```
 
+**Team mode** — pass the project root; the team lead decides partitioning. The SCOPE field becomes:
+
+```
+SCOPE — full-project team review. Map and partition internally.
+PROJECT ROOT: <absolute path>
+(The team lead should dispatch 4-10 sub-agents based on project size and structure.)
+```
+
+Full prompt template (both modes share everything below SCOPE):
+
+```
 PROJECT ROOT: <absolute path>
 
 PROJECT CONTEXT:
@@ -76,48 +122,59 @@ PROJECT CONTEXT:
 - Test scheme: <ENABLE_THREAD_SANITIZER value, test target name>
 - App Store Connect artifacts available: <yes / no — if no, scope verdict accordingly>
 
-KNOWLEDGE BASE: Use training knowledge, Context7 for Apple framework docs, and WebSearch for fresh guideline updates. If the user maintains a local iOS vault or docs folder, pass its path here and the agent will read it. If the user has a GoodMem server with a Learnings space, pass the space UUID here and the agent will query it.
-
 MODE: <both | submission | engineering>
 
-TASK:
-1. Activate serena on the project root: mcp__plugin_serena_serena__activate_project(<project root>)
-2. Map the project structure with serena get_symbols_overview / list_dir / list_memories.
-3. Read every file in scope completely.
-4. Read the relevant vault files (match scope to vault per your system prompt's dimension table).
-5. Search GoodMem Learnings with iOS-specific queries (frameworks, features, patterns you see).
-6. Run the tooling if available:
+TASK (standard mode — single agent):
+1. Read every file in scope completely.
+2. Run the tooling if available:
    - swiftlint lint --reporter json (capture findings)
    - periphery scan --format json (dead code)
    - xcodebuild analyze (if scheme can be determined and build is feasible)
-7. Review across all 12 dimensions per your system prompt. Run BOTH modes unless --mode passed.
-8. Return findings in the strict format from your system prompt: tag, evidence class, file:line, current code, suggested fix, vault citation.
-9. Both summary tables, both verdicts, recommended next steps, raw tooling output.
+3. Review across all 12 dimensions per your system prompt. Run BOTH modes unless --mode passed.
+4. Return findings in the strict format from your system prompt: tag, evidence class, file:line, current code, suggested fix, authoritative citation.
+5. Both summary tables, both verdicts, recommended next steps, raw tooling output.
+
+TASK (team mode — team lead):
+1. Map the full codebase structure and count files per target/module.
+2. Decide agent count (4-10) based on your system prompt's sizing table.
+3. Partition the codebase into non-overlapping scopes.
+4. Show the partition plan to the user before dispatching.
+5. Dispatch `senior-ios-reviewer` sub-agents SEQUENTIALLY (one at a time — never parallel).
+6. Collect and deduplicate findings.
+7. Produce a single consolidated report with unified tables and verdicts.
 
 CONSTRAINTS:
 - Read-only review. Do NOT modify any files.
-- Cite vault files in every finding where applicable.
+- Cite authoritative sources (App Review Guideline numbers, HIG sections, WCAG criteria) in every finding where applicable.
 - Cite Apple guideline numbers for App Review findings.
 - Don't issue [R] from RUNTIME / ASC evidence — use [R?] and state the evidence gap.
 - Tier 3-4 (engineering quality) findings do NOT affect the submission verdict.
 - Don't manufacture findings. Signal > noise.
-- Don't use AI slop, hedges, or emojis.
+- Don't use fluff, hedges, or emojis.
 ```
 
 ## Step 4: Dispatch the agent
 
-Use the Agent tool with these arguments:
-
+**Standard mode** — use the Agent tool:
 - `subagent_type`: `"ios-senior-review:senior-ios-reviewer"`
-- `description`: `"Senior iOS review of N files (mode: both/submission/engineering)"`
+- `description`: `"Senior iOS review of N files (mode: <mode>)"`
 - `prompt`: the prompt constructed in Step 3
-- Run in **foreground** (do NOT use `run_in_background: true`) — the user wants real-time progress and iOS reviews can take a while
+- Run in **foreground** (do NOT use `run_in_background: true`)
+
+**Team mode** — use the Agent tool:
+- `subagent_type`: `"ios-senior-review:ios-team-lead"`
+- `description`: `"Team iOS review — lead dispatches 4-10 agents (mode: <mode>)"`
+- `prompt`: the prompt constructed in Step 3
+- Run in **foreground** — team reviews take a long time (each sub-agent is a full review dispatched sequentially) and the user wants to see progress
+
+The team lead runs its own orchestration internally. You as the skill orchestrator do not dispatch any sub-agents yourself in team mode — the team lead does all sub-agent dispatch.
 
 ## Step 5: Present results
 
 When the agent returns:
 
 1. Display the agent's full report verbatim. Do not summarize, condense, or reformat. The user wants the raw output including both summary tables and both verdicts.
+   - In team mode, the report includes the team partition table, consolidated tables, all findings with reporter attribution, pattern findings, and unified verdicts.
 
 2. After the report, prompt:
 
@@ -138,15 +195,16 @@ When the agent returns:
    - Re-run the review on the same scope to verify nothing regressed
    - Run `swiftlint` to confirm style fixes are clean
    - Run `xcodebuild build` to confirm the project still compiles
-   - Write a learning to GoodMem if a non-obvious rejection pattern came up
 
 ## Notes on agent behavior
 
-- The reviewer is a fresh-context Opus agent. It does NOT see this conversation. Everything it needs goes in the dispatch prompt.
-- The agent has Read, Grep, Glob, Bash, GoodMem retrieve, serena, Context7, WebSearch, WebFetch, TodoWrite. It does NOT have Edit/Write/Agent — by design.
-- The agent runs BOTH modes by default: App Review Simulation + Senior Engineering Review. Pass `--mode submission` or `--mode engineering` to limit.
-- If the user has a local iOS reference vault or GoodMem Learnings space, include the path/UUID in the dispatch prompt so the agent can cite it. Without them, the agent relies on training knowledge + Context7 + WebSearch + Apple's published guidelines.
+- Both agents are fresh-context Opus 4.6. They do NOT see this conversation. Everything they need goes in the dispatch prompt.
+- `senior-ios-reviewer` has Read, Grep, Glob, Bash, WebSearch, WebFetch, TodoWrite, plus optional serena/Context7/GoodMem MCP tools if installed. It does NOT have Edit/Write/Agent — by design.
+- `ios-team-lead` has the same tools PLUS the Agent tool so it can dispatch sub-agents. It also does NOT have Edit/Write — by design.
+- Both modes run BOTH review modes by default: App Review Simulation + Senior Engineering Review. Pass `--mode submission` or `--mode engineering` to limit.
+- The team lead dispatches sub-agents SEQUENTIALLY (one at a time). Rate limits can cause session resets at 3+ parallel Agent calls.
 - Submission verdict is independent of engineering verdict. An app can be `READY` for submission and `NEEDS WORK` for engineering — those are different concerns.
+- **Team vs standard mode trade-off:** Team mode gives more thorough dimension coverage on large codebases at the cost of longer runtime (4-10 × 5-10 min sequential = 20-100 minutes total). Standard mode is faster and usually sufficient for codebases under ~80 Swift files.
 
 ## When to skip parts of the workflow
 
@@ -160,7 +218,11 @@ When the agent returns:
 
 - Don't dispatch the agent without project context — Apple-specific findings need entitlements/plist/manifest data.
 - Don't dispatch on diff scope for an App Store submission review — Apple sees the whole app, you should too.
+- Don't dispatch team mode on diff/staged scope — team mode is for whole-project audits. Expand to `all` or fall back to standard review.
 - Don't run the agent in the background — iOS reviews are long, the user wants progress.
+- Don't dispatch team mode on tiny codebases (< 30 Swift files) — the overhead isn't worth it. Use standard review instead.
+- Don't dispatch team lead AND standard reviewer for the same review — pick one. Team mode already includes standard reviewers as sub-agents.
+- Don't try to dispatch `senior-ios-reviewer` sub-agents yourself when in team mode — the team lead does all sub-agent dispatch internally.
 - Don't summarize the agent's findings — show them verbatim with both tables and both verdicts.
 - Don't auto-apply findings — wait for the user's explicit selection.
 - Don't mix submission and engineering findings into a single verdict — they're separately scored on purpose.

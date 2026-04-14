@@ -1,12 +1,17 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-Opus%204.6-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
 
 A [Claude Code](https://claude.com/claude-code) plugin that dispatches an **Opus 4.6** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts.
+
+Two dispatch modes:
+
+- **Standard** (default) — single `senior-ios-reviewer` agent. 5-15 min. Best for diffs, features, or codebases under ~80 Swift files.
+- **Team** (requires the exact phrase "ios team review" or `--team`) — an `ios-team-lead` agent maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates findings into one unified report with single submission + engineering verdicts. 20-100 min. Best for whole-project audits, multi-target apps, and pre-submission reviews.
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
 
@@ -50,6 +55,21 @@ After restart, verify with `claude plugin list` and look for `ios-senior-review@
 | `/ios-code-review:review-ios pr` | Diff vs `main`/`master` |
 | `/ios-code-review:review-ios MyApp/Auth/` | All Swift files in `MyApp/Auth/` |
 | `/ios-code-review:review-ios MyApp/Auth/LoginView.swift` | Single file |
+
+### Team mode (explicit opt-in required)
+
+| Invocation | What it does |
+|---|---|
+| `/ios-code-review:review-ios all --team` | Team review of the whole project (team lead picks 4-10 agents) |
+| `/ios-code-review:review-ios all --team --mode submission` | Team review, submission mode only |
+| `/ios-code-review:review-ios all --team --mode engineering` | Team review, engineering mode only |
+
+Natural-language trigger: the exact phrase **"ios team review"** (case-insensitive). Examples:
+- "do an ios team review"
+- "ios team review before I submit"
+- "run an iOS team review on this project"
+
+Generic phrases like "team review", "full audit", "thorough review", or "do a team review of my iOS app" do NOT activate team mode — they default to standard. This avoids accidentally dispatching a 20-100 minute multi-agent review when the user wanted a thorough single-agent one.
 
 You can also ask Claude in plain English: "review my iOS app", "will Apple reject this?", "audit my Swift code", "TestFlight rejected my build, what's wrong?". The skill description triggers automatically.
 
@@ -130,8 +150,9 @@ An app can be `READY` for submission AND `NEEDS WORK` for engineering — those 
 
 | Type | Name | Purpose |
 |---|---|---|
-| Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and dispatches the agent |
-| Agent | `senior-ios-reviewer` | Opus 4.6 reviewer that runs both modes, reads code + project artifacts, runs tooling, returns findings |
+| Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and dispatches either the standard reviewer or the team lead |
+| Agent | `senior-ios-reviewer` | Opus 4.6 reviewer that runs both modes, reads code + project artifacts, runs tooling, returns findings. Used directly in standard mode and as the sub-agent in team mode |
+| Agent | `ios-team-lead` | Opus 4.6 team lead. Maps the codebase, decides on 4-10 sub-agents, partitions scope into non-overlapping areas, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates all findings into one unified report. Has the Agent tool for sub-agent dispatch; does NOT have Edit/Write |
 
 ## Tool access
 
@@ -156,7 +177,7 @@ The plugin works fine with just the built-in tools, but findings get richer with
 - **[serena](https://github.com/oraios/serena) MCP** — symbol-level project navigation. Much faster than grepping for structural understanding.
 - **[Context7](https://context7.com/) MCP** — live Apple framework docs and third-party library docs.
 - **[GoodMem](https://goodmem.ai/) MCP** — semantic memory search for cross-session learnings.
-- **A local iOS knowledge base** — e.g., an Obsidian vault under `~/Claude/vault/iOS Development/` with reference docs the agent can cite. Any path works — just tell the agent where it is.
+- **A local iOS knowledge base** — any directory of reference docs (Obsidian vault, markdown repo, WWDC notes). Tell the agent where it is in the dispatch prompt and it will read + cite relevant files.
 
 None are required.
 
