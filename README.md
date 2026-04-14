@@ -1,5 +1,11 @@
 # ios-code-review
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Plugin Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
+[![Model](https://img.shields.io/badge/model-Opus%204.6-orange.svg)](https://www.anthropic.com/claude)
+[![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
+
 A [Claude Code](https://claude.com/claude-code) plugin that dispatches an **Opus 4.6** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts.
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
