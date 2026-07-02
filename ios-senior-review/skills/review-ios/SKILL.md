@@ -1,17 +1,17 @@
 ---
 name: review-ios
 description: |-
-  Use this skill when the user asks for an iOS / Swift / SwiftUI / UIKit code review, says "review my iOS app", "check my Swift code", "audit this for App Store readiness", "will Apple reject this?", "TestFlight review", "pre-submission review", "iOS engineering review", or wants comprehensive review covering App Store compliance, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, deep linking, concurrency, or performance. Supports two dispatch modes: STANDARD (default — single Opus 4.6 `senior-ios-reviewer` agent) and TEAM (requires the explicit phrase "ios team review" OR the `--team` flag — dispatches `ios-team-lead` which maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches a team of `senior-ios-reviewer` sub-agents sequentially, and consolidates findings into one unified report). Team mode ONLY triggers on the specific phrase "ios team review" — generic "team review" or "full audit" alone do NOT activate team mode. Use proactively before App Store submission, after a TestFlight rejection, or when finishing a substantial iOS feature.
+  Use this skill when the user asks for an iOS / Swift / SwiftUI / UIKit code review, says "review my iOS app", "check my Swift code", "audit this for App Store readiness", "will Apple reject this?", "TestFlight review", "pre-submission review", "iOS engineering review", or wants comprehensive review covering App Store compliance, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, deep linking, concurrency, or performance. Supports two dispatch modes: STANDARD (default — single Fable 5 `senior-ios-reviewer` agent) and TEAM (requires the explicit phrase "ios team review" OR the `--team` flag — dispatches `ios-team-lead`). Team mode ONLY triggers on the specific phrase "ios team review" — generic "team review" or "full audit" alone do NOT activate team mode. Use proactively before App Store submission, after a TestFlight rejection, or when finishing a substantial iOS feature.
 argument-hint: '[path | file | "diff" | "staged" | "pr" | "all"] [--mode submission | --mode engineering] [--team]'
 allowed-tools: Bash, Read, Grep, Glob, TodoWrite, Agent
 ---
 
 # iOS Senior Review
 
-You are coordinating a senior iOS code review on the user's behalf. Your job is to determine the scope, gather Apple-specific project context (Info.plist, entitlements, privacy manifest, build settings, deployment targets), and dispatch one of two Opus 4.6 agents:
+You are coordinating a senior iOS code review on the user's behalf. Your job is to determine the scope, gather Apple-specific project context (Info.plist, entitlements, privacy manifest, build settings, deployment targets), and dispatch one of two Fable 5 agents:
 
-- **Standard review** (default) — dispatch `ios-senior-review:senior-ios-reviewer` directly. Single-agent review, fastest, best for small-to-medium codebases or narrow scopes.
-- **Team review** (`--team` flag) — dispatch `ios-senior-review:ios-team-lead`. The team lead maps the codebase, decides on 4-10 reviewers, partitions scope, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates findings. Best for large codebases (50+ Swift files), multi-target projects, or pre-submission audits where you want maximum dimension coverage.
+- **Standard review** (default) — dispatch `ios-code-review:senior-ios-reviewer` directly. Single-agent review, fastest, best for small-to-medium codebases or narrow scopes.
+- **Team review** (`--team` flag) — dispatch `ios-code-review:ios-team-lead`. The team lead maps the codebase, decides on 4-10 reviewers, partitions scope, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates findings. Best for large codebases (50+ Swift files), multi-target projects, or pre-submission audits where you want maximum dimension coverage.
 
 Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`.
 
@@ -139,7 +139,7 @@ TASK (team mode — team lead):
 2. Decide agent count (4-10) based on your system prompt's sizing table.
 3. Partition the codebase into non-overlapping scopes.
 4. Show the partition plan to the user before dispatching.
-5. Dispatch `senior-ios-reviewer` sub-agents SEQUENTIALLY (one at a time — never parallel).
+5. Dispatch `senior-ios-reviewer` sub-agents in parallel waves sized to breadth within the fan-out budget (≤10/wave); sequential is the fallback only if session-reset recurs.
 6. Collect and deduplicate findings.
 7. Produce a single consolidated report with unified tables and verdicts.
 
@@ -156,7 +156,7 @@ CONSTRAINTS:
 ## Step 4: Dispatch
 
 **Standard mode** — use the Agent tool:
-- `subagent_type`: `"ios-senior-review:senior-ios-reviewer"`
+- `subagent_type`: `"ios-code-review:senior-ios-reviewer"`
 - `description`: `"Senior iOS review of N files (mode: <mode>)"`
 - `prompt`: the prompt constructed in Step 3
 - Run in **foreground** (do NOT use `run_in_background: true`)
@@ -167,7 +167,7 @@ CONSTRAINTS:
 
 Team mode workflow (you execute all of it):
 
-1. **Load the team lead's operating manual**: Read the plugin's `ios-senior-review/agents/ios-team-lead.md` (everything after the second `---` frontmatter delimiter). This is your manual for partitioning, dispatch rules, and consolidation format.
+1. **Load the team lead's operating manual**: Read the plugin's `agents/ios-team-lead.md` (everything after the second `---` frontmatter delimiter). This is your manual for partitioning, dispatch rules, and consolidation format.
 
 2. **Map + partition the codebase** per the manual's Steps 1-3:
    - Run the codebase mapping commands (file counts, target enumeration, framework detection)
@@ -175,9 +175,9 @@ Team mode workflow (you execute all of it):
    - Decide on 4-10 scopes, each non-overlapping
    - Present the partition table to the user BEFORE dispatching anything
 
-3. **Dispatch senior-ios-reviewer sub-agents sequentially** (one at a time, NEVER parallel). For each scope:
+3. **Dispatch senior-ios-reviewer sub-agents in parallel waves** (scaled to breadth within the fan-out budget, ≤10/wave; fall back to sequential only if session-reset #44753 actually recurs). For each scope:
    - Build the scope-specific reviewer prompt per the manual's Step 5 template
-   - `Agent({ subagent_type: "ios-senior-review:senior-ios-reviewer", description: "Scope <N>: <name>", model: "opus", prompt: "<scope prompt>" })`
+   - `Agent({ subagent_type: "ios-code-review:senior-ios-reviewer", description: "Scope <N>: <name>", model: "fable", prompt: "<scope prompt>" })`
    - Wait for the reviewer to return before dispatching the next
    - Collect each reviewer's report
 
@@ -220,11 +220,11 @@ When the agent returns:
 
 ## Notes on agent behavior
 
-- Both agents are fresh-context Opus 4.6. They do NOT see this conversation. Everything they need goes in the dispatch prompt.
-- `senior-ios-reviewer` has Read, Grep, Glob, Bash, WebSearch, WebFetch, TodoWrite, plus optional serena/Context7/GoodMem MCP tools if installed. It does NOT have Edit/Write/Agent — by design.
+- Both agents are fresh-context Fable 5. They do NOT see this conversation. Everything they need goes in the dispatch prompt.
+- `senior-ios-reviewer` has Read, Grep, Glob, Bash, WebSearch, WebFetch, TodoWrite. It does NOT have Edit/Write/Agent — by design.
 - `ios-team-lead` has the same tools PLUS the Agent tool so it can dispatch sub-agents. It also does NOT have Edit/Write — by design.
 - Both modes run BOTH review modes by default: App Review Simulation + Senior Engineering Review. Pass `--mode submission` or `--mode engineering` to limit.
-- The team lead dispatches sub-agents SEQUENTIALLY (one at a time). Rate limits can cause session resets at 3+ parallel Agent calls.
+- The team lead dispatches sub-agents in parallel waves sized to breadth within the fan-out budget (≤10/wave). Sequential/smaller waves only if session-reset (#44753) actually recurs.
 - Submission verdict is independent of engineering verdict. An app can be `READY` for submission and `NEEDS WORK` for engineering — those are different concerns.
 - **Team vs standard mode trade-off:** Team mode gives more thorough dimension coverage on large codebases at the cost of longer runtime (4-10 × 5-10 min sequential = 20-100 minutes total). Standard mode is faster and usually sufficient for codebases under ~80 Swift files.
 

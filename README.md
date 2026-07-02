@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Plugin Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
-[![Model](https://img.shields.io/badge/model-Opus%204.6-orange.svg)](https://www.anthropic.com/claude)
+[![Model](https://img.shields.io/badge/model-Fable%205-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
 
-A [Claude Code](https://claude.com/claude-code) plugin that dispatches an **Opus 4.6** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts.
+A [Claude Code](https://claude.com/claude-code) plugin that dispatches an **Fable 5** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts.
 
 Two dispatch modes:
 
@@ -15,7 +15,7 @@ Two dispatch modes:
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
 
-> **Note — this repo previously shipped a standalone skill (`SKILL.md`).** That skill was replaced on 2026-04-14 with a proper plugin containing an orchestrator skill and a dedicated Opus 4.6 subagent. The plugin is a strict upgrade: fresh-context reviewer, forced Opus 4.6 model, read-only tool access. Old `SKILL.md` consumers should switch to the plugin via the install instructions below.
+> **Note — this repo previously shipped a standalone skill (`SKILL.md`).** That skill was replaced on 2026-04-14 with a proper plugin containing an orchestrator skill and a dedicated Fable 5 subagent. The plugin is a strict upgrade: fresh-context reviewer, forced Fable 5 model, read-only tool access. Old `SKILL.md` consumers should switch to the plugin via the install instructions below.
 
 ## What it does
 
@@ -23,7 +23,7 @@ When you invoke the `review-ios` skill (or ask Claude to review your iOS app), t
 
 1. **Scope resolution** — single file, directory, git diff, staged, PR diff, or whole project. For App Store submission reviews, `diff` auto-expands to `all` (Apple sees the whole app, not your diff).
 2. **Apple-specific context gathering** — `Info.plist`, `*.entitlements`, `PrivacyInfo.xcprivacy`, build settings (deployment target, Swift version, strict concurrency), targets (App Clip, NSE, widgets, watchOS), third-party deps, linter config.
-3. **Agent dispatch** — fresh-context Opus 4.6 subagent with read-only tools, running in two simultaneous modes:
+3. **Agent dispatch** — fresh-context Fable 5 subagent with read-only tools, running in two simultaneous modes:
    - **App Review Simulation** — Apple App Review team persona, checks all 5 guideline categories, top 10 rejection causes
    - **Senior Engineering Review** — senior Apple platform engineer, checks Swift quality, Swift 6 concurrency, performance, HIG conformance, accessibility, platform integration
 4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, reviews across 12 dimensions in 4 tiers, and returns evidence-tagged findings
@@ -151,8 +151,8 @@ An app can be `READY` for submission AND `NEEDS WORK` for engineering — those 
 | Type | Name | Purpose |
 |---|---|---|
 | Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and dispatches either the standard reviewer or the team lead |
-| Agent | `senior-ios-reviewer` | Opus 4.6 reviewer that runs both modes, reads code + project artifacts, runs tooling, returns findings. Used directly in standard mode and as the sub-agent in team mode |
-| Agent | `ios-team-lead` | Opus 4.6 team lead. Maps the codebase, decides on 4-10 sub-agents, partitions scope into non-overlapping areas, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates all findings into one unified report. Has the Agent tool for sub-agent dispatch; does NOT have Edit/Write |
+| Agent | `senior-ios-reviewer` | Fable 5 reviewer that runs both modes, reads code + project artifacts, runs tooling, returns findings. Used directly in standard mode and as the sub-agent in team mode |
+| Agent | `ios-team-lead` | Fable 5 team lead. Maps the codebase, decides on 4-10 sub-agents, partitions scope into non-overlapping areas, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates all findings into one unified report. Has the Agent tool for sub-agent dispatch; does NOT have Edit/Write |
 
 ## Tool access
 
@@ -186,7 +186,7 @@ None are required.
 This repo previously shipped a standalone `SKILL.md` (469 lines loaded inline into your conversation). The plugin architecture is a strict upgrade:
 
 1. **Fresh context** — the reviewer runs in an isolated subagent that has never seen the conversation that wrote the code. No pattern blindness.
-2. **Forced model** — the agent is pinned to `model: opus`. Your main session can be on any model; the reviewer is always Opus 4.6.
+2. **Forced model** — the agent is pinned to `model: fable`. Your main session can be on any model; the reviewer is always Fable 5.
 3. **Read-only enforcement** — the agent has Read but not Edit/Write. Impossible to "accidentally fix" code mid-review.
 4. **Clean orchestration** — the skill gathers project context (Info.plist, entitlements, targets, privacy manifest) and passes it to the agent. The old skill expected the main agent to do all of this itself.
 
@@ -196,4 +196,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Built by [mize](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system and Anthropic's Opus 4.6 model.
+Built by [mize](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system and Anthropic's Fable 5 model.
