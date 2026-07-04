@@ -1,17 +1,17 @@
 {
   "name": "ios-code-review",
   "metadata": {
-    "description": "Senior iOS developer code review plugin for Claude Code. Dispatches an Opus 4.6 subagent that simulates BOTH the Apple App Review team and a senior Apple platform engineer \u2014 reviewing 12 dimensions across 4 tiers including App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, Swift 6 concurrency, and performance."
+    "description": "Senior iOS developer code review plugin for Claude Code. Dispatches a Fable 5 subagent that simulates BOTH the Apple App Review team and a senior Apple platform engineer \u2014 reviewing 12 dimensions across 4 tiers including App Store rejection risk, privacy, entitlements, security, HIG, accessibility, SwiftUI patterns, Swift 6 concurrency, and performance, with a real-simulator verification pass."
   },
   "owner": {
-    "name": "mize"
+    "name": "TheMizeGuy"
   },
   "plugins": [
     {
       "name": "ios-senior-review",
-      "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an Opus 4.6 agent. Standard mode: single agent simulates BOTH the Apple App Review team AND a senior Apple platform engineer. Team mode (triggered by 'ios team review' or --team): a team-lead Opus 4.6 agent partitions the codebase into 4-10 non-overlapping scopes, dispatches senior-ios-reviewer sub-agents sequentially, and consolidates one unified report. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
+      "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by a Fable 5 agent. Standard mode: single agent simulates BOTH the Apple App Review team AND a senior Apple platform engineer, with a simulator verification pass when available. Team mode (triggered by 'ios team review' or --team): the orchestrator acts as team lead, partitions the codebase into 4-10 non-overlapping scopes, dispatches senior-ios-reviewer sub-agents in one parallel wave, runs a runtime-verification pass and a seam review, and consolidates one unified report. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
       "source": "./ios-senior-review",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "code-review",
       "keywords": [
         "ios",
@@ -23,7 +23,8 @@
         "apple",
         "privacy",
         "accessibility",
-        "hig"
+        "hig",
+        "simulator"
       ]
     }
   ]

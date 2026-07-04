@@ -1,17 +1,17 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-Fable%205-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
 
-A [Claude Code](https://claude.com/claude-code) plugin that dispatches an **Fable 5** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts.
+A [Claude Code](https://claude.com/claude-code) plugin that dispatches a **Fable 5** senior iOS developer agent to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts — and verifies runtime behavior on a real simulator via [XcodeBuildMCP](https://xcodebuildmcp.com) when available.
 
 Two dispatch modes:
 
 - **Standard** (default) — single `senior-ios-reviewer` agent. 5-15 min. Best for diffs, features, or codebases under ~80 Swift files.
-- **Team** (requires the exact phrase "ios team review" or `--team`) — an `ios-team-lead` agent maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates findings into one unified report with single submission + engineering verdicts. 20-100 min. Best for whole-project audits, multi-target apps, and pre-submission reviews.
+- **Team** (requires the exact phrase "ios team review" or `--team`) — the orchestrator acts as team lead per the `ios-team-lead` manual: maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches `senior-ios-reviewer` sub-agents in one parallel wave, adds a dedicated runtime-verification agent and a mandatory seam review at the partition boundaries, and consolidates findings into one unified report with single submission + engineering verdicts. ~15-30 min. Best for whole-project audits, multi-target apps, and pre-submission reviews (30+ Swift files; 100+ is the sweet spot).
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
 
@@ -21,12 +21,12 @@ The reviewer is a fresh-context subagent with strict **read-only** tool access. 
 
 When you invoke the `review-ios` skill (or ask Claude to review your iOS app), the plugin:
 
-1. **Scope resolution** — single file, directory, git diff, staged, PR diff, or whole project. For App Store submission reviews, `diff` auto-expands to `all` (Apple sees the whole app, not your diff).
-2. **Apple-specific context gathering** — `Info.plist`, `*.entitlements`, `PrivacyInfo.xcprivacy`, build settings (deployment target, Swift version, strict concurrency), targets (App Clip, NSE, widgets, watchOS), third-party deps, linter config.
+1. **Scope resolution** — single file, directory, git diff (including untracked new files), staged, PR diff, or whole project. For App Store submission reviews, `diff` auto-expands to `all` (Apple sees the whole app, not your diff).
+2. **Apple-specific context gathering** — `Info.plist`, `*.entitlements`, `PrivacyInfo.xcprivacy`, build settings (deployment target, Swift version/language mode), shared-scheme diagnostics (TSan/ASan), targets enumerated by `productType` (App Clip, NSE, widgets, watchOS), third-party deps, linter config, simulator availability.
 3. **Agent dispatch** — fresh-context Fable 5 subagent with read-only tools, running in two simultaneous modes:
-   - **App Review Simulation** — Apple App Review team persona, checks all 5 guideline categories, top 10 rejection causes
+   - **App Review Simulation** — Apple App Review team persona, checks all 5 guideline categories, top rejection causes with real-world frequencies
    - **Senior Engineering Review** — senior Apple platform engineer, checks Swift quality, Swift 6 concurrency, performance, HIG conformance, accessibility, platform integration
-4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, reviews across 12 dimensions in 4 tiers, and returns evidence-tagged findings
+4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, drives a simulator pass (build, UI tests, screenshots at default + `.accessibility3` Dynamic Type) when one is available, writes its full report to a durable blackboard file, and returns evidence-tagged findings
 5. **Present results** — the orchestrator displays the verbatim report with **both** summary tables and **both** verdicts, then asks which findings you want applied
 
 ## Installation
@@ -47,12 +47,12 @@ After restart, verify with `claude plugin list` and look for `ios-senior-review@
 
 | Invocation | What it reviews |
 |---|---|
-| `/ios-code-review:review-ios` | Uncommitted + staged Swift changes (default), both review modes |
+| `/ios-code-review:review-ios` | Uncommitted + staged + new (untracked) Swift changes (default), both review modes |
 | `/ios-code-review:review-ios all` | Whole project, both modes (recommended for pre-submission) |
 | `/ios-code-review:review-ios all --mode submission` | Whole project, App Review Simulation only |
 | `/ios-code-review:review-ios all --mode engineering` | Whole project, Senior Engineering Review only |
 | `/ios-code-review:review-ios staged` | Only staged changes |
-| `/ios-code-review:review-ios pr` | Diff vs `main`/`master` |
+| `/ios-code-review:review-ios pr` | Diff vs the default branch (main/master, local or origin; stops and asks if none exists) |
 | `/ios-code-review:review-ios MyApp/Auth/` | All Swift files in `MyApp/Auth/` |
 | `/ios-code-review:review-ios MyApp/Auth/LoginView.swift` | Single file |
 
@@ -69,7 +69,7 @@ Natural-language trigger: the exact phrase **"ios team review"** (case-insensiti
 - "ios team review before I submit"
 - "run an iOS team review on this project"
 
-Generic phrases like "team review", "full audit", "thorough review", or "do a team review of my iOS app" do NOT activate team mode — they default to standard. This avoids accidentally dispatching a 20-100 minute multi-agent review when the user wanted a thorough single-agent one.
+Generic phrases like "team review", "full audit", "thorough review", or "do a team review of my iOS app" do NOT activate team mode — they default to standard. This avoids accidentally dispatching a long-running multi-agent review when the user wanted a thorough single-agent one.
 
 You can also ask Claude in plain English: "review my iOS app", "will Apple reject this?", "audit my Swift code", "TestFlight rejected my build, what's wrong?". The skill description triggers automatically.
 
@@ -79,17 +79,17 @@ You can also ask Claude in plain English: "review my iOS app", "will Apple rejec
 
 | # | Dimension | Examples |
 |---|---|---|
-| 1 | App Store Rejection Risk | Top 10 rejection causes (Guidelines 1-5), Sign in with Apple, UIWebView, IAP, AI consent, EU DMA, StoreKit 2 |
-| 2 | Privacy & Data Protection | Privacy manifest, ATT, purpose strings, tracking domains, third-party SDK manifests, account deletion, GDPR/CCPA |
-| 3 | Entitlements & Info.plist | Entitlement-to-feature fit, `UIBackgroundModes`, `CFBundleURLTypes`, `LSApplicationQueriesSchemes`, scene manifest |
+| 1 | App Store Rejection Risk | Top 10 rejection causes with frequencies (Guidelines 1-5), current SDK/toolchain gate, age-rating questionnaire, Sign in with Apple, UIWebView, IAP + StoreKit 2 lifecycle, AI data-sharing disclosure (5.1.2(i)), UGC/anonymous chat (1.2), Live Activities anti-spam (4.5.3), 4.3(b) saturated categories, EU DMA |
+| 2 | Privacy & Data Protection | Privacy manifest + full Required Reason API code table (incl. the App-Group `1C8F.1` gotcha), ATT timing/UX, purpose strings, tracking domains, third-party SDK manifests, policy-vs-wire drift check, account deletion, GDPR/CCPA |
+| 3 | Entitlements & Info.plist | Entitlement-to-feature fit, export compliance (`ITSAppUsesNonExemptEncryption`), code-signing diagnostics (ITMS-90034/90046), arm64/binary-size upload gates, `UIBackgroundModes`, `CFBundleURLTypes`, scene manifest |
 | 4 | Security | Keychain, ATS, certificate pinning, screenshot protection, OSLog `.private`, biometric auth, hardcoded secrets |
 
 ### Tier 2 — High-Yield Static Quality (reviewer flags)
 
 | # | Dimension | Examples |
 |---|---|---|
-| 5 | Human Interface Guidelines | NavigationStack, semantic colors, SF Symbols, alerts, layout direction, app icon, launch screen, localization |
-| 6 | Accessibility | VoiceOver, Dynamic Type, contrast, touch targets, Reduce Motion, Voice Control, WCAG 2.1 AA + 2.2 |
+| 5 | Human Interface Guidelines | NavigationStack, Liquid Glass adoption + legibility (iOS 26), semantic colors, SF Symbols, alerts, layout direction, app icon (dark + tinted variants, Icon Composer), launch screen, localization |
+| 6 | Accessibility | VoiceOver (incl. `.onTapGesture` invisibility, `.combine` swallowing interactive children), Dynamic Type, contrast, touch targets, Reduce Motion, Voice Control, `performAccessibilityAudit` integrity, Accessibility Nutrition Labels, WCAG 2.1 AA + 2.2 |
 | 7 | SwiftUI / UIKit Patterns | `@Observable`, `NavigationStack`, `.task {}`, `LazyVStack`, `#Preview`, `UIViewRepresentable` cleanup |
 | 8 | Deep Linking & Extensions | Universal links, AASA, `.onOpenURL`, App Clip budget, NSE, widgets, share/action extensions |
 
@@ -98,7 +98,7 @@ You can also ask Claude in plain English: "review my iOS app", "will Apple rejec
 | # | Dimension | Examples |
 |---|---|---|
 | 9 | Swift Language Quality | API design, no force-unwraps, error handling, value vs reference, access control, deprecated APIs |
-| 10 | Concurrency Safety | `@MainActor`, `Sendable`, structured concurrency, cancellation, `SWIFT_STRICT_CONCURRENCY=complete`, TSan |
+| 10 | Concurrency Safety | `@MainActor`, `Sendable`, structured concurrency, cancellation, Swift 6 language mode / `SWIFT_STRICT_CONCURRENCY`, TSan (scheme-level) |
 | 11 | Performance & Memory | Launch time, retain cycles, view perf, image handling, BGTaskScheduler, app size |
 
 ### Tier 4 — Platform Opportunity (advisory only)
@@ -109,15 +109,15 @@ You can also ask Claude in plain English: "review my iOS app", "will Apple rejec
 
 ## Evidence classes
 
-Every finding states its evidence basis. The agent will **not** issue `[R]` (rejection) from `RUNTIME` or `ASC` evidence — it uses `[R?]` and explicitly states what verification is needed.
+Every finding states its evidence basis. The agent will **not** issue `[R]` (rejection) from `RUNTIME` or `ASC` evidence — it uses `[R?]` (marked "verified" with reproduction steps when the simulator pass confirmed it) and explicitly states what verification is needed.
 
 | Class | What it proves |
 |---|---|
 | `SOURCE` | Provable from reading code (force-unwraps, missing privacy manifest, hardcoded secrets) |
-| `BUILD` | Requires compiled artifact (entitlement signing, binary scan, app size) |
+| `BUILD` | Requires compiled artifact (entitlement signing, binary scan, app size, SDK version gate) |
 | `SERVER` | Requires external system (AASA validation, push payload, backend) |
-| `ASC` | Requires App Store Connect data (privacy labels, screenshots, metadata) |
-| `RUNTIME` | Requires device/simulator (crashes, safe areas, contrast, haptics, Dynamic Type layout) |
+| `ASC` | Requires App Store Connect data (privacy labels, age rating, screenshots, metadata) |
+| `RUNTIME` | Requires device/simulator (crashes, safe areas, contrast, haptics, Dynamic Type layout) — marked `RUNTIME (verified)` when the reviewer reproduced it on the simulator |
 
 ## Severity levels
 
@@ -146,13 +146,15 @@ The agent produces **two independent verdicts**:
 
 An app can be `READY` for submission AND `NEEDS WORK` for engineering — those are different concerns and the agent keeps them separate on purpose. Tier 3-4 findings never affect the submission verdict.
 
+**Team-mode aggregation:** `[R]` and `[R?]` are absolute (rejection risks don't dilute with project size). `[W]` thresholds apply to a per-100-files normalized count above 100 files, and pattern findings (the same issue across many files) count once — so ten independently-clean scopes can't sum their way into a failing verdict on scattered one-off warnings. The report shows both the raw total and the normalized figure.
+
 ## Components
 
 | Type | Name | Purpose |
 |---|---|---|
-| Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and dispatches either the standard reviewer or the team lead |
-| Agent | `senior-ios-reviewer` | Fable 5 reviewer that runs both modes, reads code + project artifacts, runs tooling, returns findings. Used directly in standard mode and as the sub-agent in team mode |
-| Agent | `ios-team-lead` | Fable 5 team lead. Maps the codebase, decides on 4-10 sub-agents, partitions scope into non-overlapping areas, dispatches `senior-ios-reviewer` sub-agents sequentially, and consolidates all findings into one unified report. Has the Agent tool for sub-agent dispatch; does NOT have Edit/Write |
+| Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and either dispatches the standard reviewer or acts as team lead per the `ios-team-lead` manual |
+| Agent | `senior-ios-reviewer` | Fable 5 reviewer that runs both modes, reads code + project artifacts, runs static tooling and the simulator verification pass, writes its report to a blackboard file, returns findings. Used directly in standard mode and as the sub-agent in team mode |
+| Agent | `ios-team-lead` | Team-lead operating manual. Read and executed by the orchestrator in team mode — never dispatched as a subagent (plugin-namespaced dispatch strips the Agent tool at runtime). Covers partitioning, the parallel-wave dispatch contract, the runtime-verification pass, the mandatory seam review, and consolidation with normalized verdicts |
 
 ## Tool access
 
@@ -160,20 +162,19 @@ The agent is **read-only by design**. It has:
 
 | Tool | Purpose |
 |---|---|
-| `Read`, `Grep`, `Glob` | Read Swift files, Info.plist, entitlements, privacy manifest |
-| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze` |
+| `Read`, `Grep`, `Glob` | Read Swift files, Info.plist, entitlements, privacy manifest, schemes |
+| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write the blackboard report via heredoc |
 | `TodoWrite` | Track findings during long reviews |
 | `WebSearch`, `WebFetch` | Check latest Apple guideline updates |
-| `mcp__plugin_serena_serena__*` (optional) | Symbol-level project navigation if [serena](https://github.com/oraios/serena) is installed |
-| `mcp__plugin_context7_context7__*` (optional) | Live Apple framework docs if [context7](https://context7.com/) is installed |
-| `mcp__plugin_goodmem_goodmem__*` (optional) | Semantic memory queries if [GoodMem](https://goodmem.ai/) MCP is configured |
+| `mcp__XcodeBuildMCP__*` (optional) | The runtime verification pass — simulator build/run/test/screenshot/snapshot — when [XcodeBuildMCP](https://xcodebuildmcp.com) is configured |
 
-It does **not** have `Edit`, `Write`, or `Agent` access. Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
+It does **not** have `Edit`, `Write`, or `Agent` access (the blackboard heredoc via Bash is its one sanctioned file output). Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
 
 ## Optional enhancements
 
-The plugin works fine with just the built-in tools, but findings get richer with:
+The plugin works fine with just the built-in tools, but the review gets stronger with:
 
+- **[XcodeBuildMCP](https://xcodebuildmcp.com)** — enables the full simulator runtime-verification pass (build/run/test/screenshot/snapshot). Without it the agent falls back to `xcodebuild`/`xcrun simctl` via Bash, or static-only review.
 - **[serena](https://github.com/oraios/serena) MCP** — symbol-level project navigation. Much faster than grepping for structural understanding.
 - **[Context7](https://context7.com/) MCP** — live Apple framework docs and third-party library docs.
 - **[GoodMem](https://goodmem.ai/) MCP** — semantic memory search for cross-session learnings.
@@ -196,4 +197,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Built by [mize](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system and Anthropic's Fable 5 model.
+Built by [TheMizeGuy](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system and Anthropic's Fable 5 model.

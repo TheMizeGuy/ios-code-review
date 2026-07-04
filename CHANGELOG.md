@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0] - 2026-07-03
+
+### Added
+
+- **Runtime verification pass** — the reviewer drives a real simulator via XcodeBuildMCP when available (build/run, UI tests incl. `performAccessibilityAudit`, screenshots at default + `.accessibility3` Dynamic Type, UI snapshots), verifying or refuting its `RUNTIME`-class `[R?]` findings. Verified reproductions are marked `RUNTIME (verified)`; `[R]` stays reserved for `SOURCE`/`BUILD` evidence. Falls back to `xcodebuild`/`xcrun simctl` via Bash, or static-only with the gap named.
+- **Durable blackboard reports** — every dispatch carries a `BLACKBOARD:` path; the reviewer writes its full report there via Bash heredoc before returning (final messages truncate around 60KB), and the orchestrator reads the file with citation spot-checks rather than trusting a truncated message.
+- **Mandatory seam review in team mode** — the team lead builds a seam map at partition time, reads every scope boundary from both sides after the wave returns, and resolves every cross-scope note instead of leaving it open; the Submission Artifacts agent additionally cross-checks bundled privacy-policy claims against the actual networking/auth wire code.
+- **Dedicated runtime-verification agent in team mode** — exactly one agent drives the simulator after the static wave (parallel reviewers do not touch it), re-testing every flagged `RUNTIME` `[R?]`.
+- 2025-2026 review-reality refresh: Required Reason API code table for all 5 categories (incl. the App-Group `1C8F.1` vs `CA92.1` ITMS-91056 gotcha), 5.1.2(i) third-party-AI disclosure specifics, 4.3(b) saturated/low-effort categories, 4.5.3 Live Activities anti-spam, new age-rating tiers (4+/9+/13+/16+/18+) and questionnaire gate, current SDK/toolchain upload gate, arm64/binary-size upload gates, code-signing ITMS diagnostics, EU DMA notarization + commission notes, Accessibility Nutrition Labels, Liquid Glass HIG checks (adoption, legibility, icon variants), StoreKit 2 lifecycle sub-checks, ATT timing/UX sub-checks, export compliance (`ITSAppUsesNonExemptEncryption`), placeholder-content/category checks, FamilyControls conditional block, `.onTapGesture`/`.combine` VoiceOver traps, `performAccessibilityAudit` handler-integrity check, Swift 6 language-mode check, top-10 rejection table with frequency estimates.
+- Scope resolution hardening: `diff` now includes untracked new files (`git ls-files --others`); `pr` walks a 4-way merge-base ladder (main/master, local/origin) and stops instead of silently diffing worktree-vs-index; directory scope includes plist/entitlements/xcprivacy; explicit vendored-dir post-filtering; targets enumerated by `productType`; TSan/ASan read from `.xcscheme` (they are not build settings); argument validation for malformed flags.
+
+### Changed
+
+- **One dispatch story.** Team mode: the orchestrator itself acts as team lead, reading `agents/ios-team-lead.md` as an operating manual — a team-lead subagent is never dispatched (plugin-namespaced dispatch strips the Agent tool at runtime). Reviewer sub-agents go out in ONE parallel wave (≤10, batched in a single message); halved sequential waves only after an observed session-reset/rate-limit. All previous "sequential dispatch" language removed; team-mode wall clock is now ~15-30 min (20-100 min only under the sequential fallback).
+- **Team verdict aggregation normalized** — `[R]`/`[R?]` remain absolute; `[W]` thresholds apply per 100 files above 100 files and pattern findings count once, so large projects aren't failed by scattered one-off warnings. The report prints both raw and normalized numbers.
+- Team-mode floor documented consistently at 30+ Swift files (sweet spot 100+); sizing table clarifies target semantics and gains a mandatory-allocation bump rule and a numeric test-agent threshold.
+- Corrected tooling recipes: `swiftlint analyze` two-step compile-log flow; full `xcodebuild analyze` invocation with `-project`/`-workspace` and `-destination`.
+- SwiftLint/periphery/xcodebuild guidance, evidence classes, per-finding template, and tables updated throughout for the new runtime evidence flow.
+- Plugin manifest and marketplace descriptions updated; author contact set to the public address.
+
 ## 2026-07-02
 
 - Synced plugin content from the maintained source: Fable 5 model line throughout, agent fan-out bounded by the dispatch budget (≤10/wave), refreshed knowledge-base counts, removed stale references.
