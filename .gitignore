@@ -4,3 +4,7 @@
 node_modules/
 .vscode/
 .idea/
+.serena/
+.claude/
+.remember/
+.anti-slop/

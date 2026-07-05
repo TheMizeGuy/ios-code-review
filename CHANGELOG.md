@@ -1,5 +1,18 @@
 # Changelog
 
+All notable changes to this repository will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.1] - 2026-07-05
+
+### Changed
+
+- **No model pin anywhere.** Removed the last `model: fable` references from `plugin.json`, `marketplace.json`, both agent frontmatters, `SKILL.md`, and the README/CHANGELOG prose. Both agents now explicitly inherit the session model — always the strongest available Claude — with no dated model ID anywhere in the repo.
+- **Fable-edge dispatch hardening ported from the maintained source:** the standard-mode and team-mode dispatch prompts now carry a `PLUGIN ROOT:` line so the reviewer can resolve `references/dimensions/` at runtime regardless of install path; team-mode reviewer dispatches carry explicit ACCEPTANCE CRITERIA the team lead checks before folding in findings, with one re-dispatch on a failed gate; team-mode consolidation adds a 6-point verification checklist (table totals, seam resolution, runtime verdicts, `W_norm` math, recomputed verdicts, reporter attribution) that must pass before the final report is presented.
+- Docs refresh: README gains a `references/dimensions/` row in the Components table, a Walkthrough section (install → invoke → output shape → apply → verify), and a Troubleshooting table; corrected the "Optional enhancements" list to only name tools the shipped agent frontmatter actually declares (XcodeBuildMCP, local knowledge base); LICENSE copyright holder corrected to the maintainer's GitHub identity.
+
 ## [0.3.0] - 2026-07-03
 
 ### Added
@@ -23,11 +36,6 @@
 ## 2026-07-02
 
 - Synced plugin content from the maintained source: Fable 5 model line throughout, agent fan-out bounded by the dispatch budget (≤10/wave), refreshed knowledge-base counts, removed stale references.
-
-All notable changes to this repository will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - 2026-04-14
 
@@ -79,5 +87,7 @@ Three upgrades from the standalone-skill architecture:
 2. **Forced Opus 4.6** — the agent is pinned to `model: opus` regardless of main session model.
 3. **Read-only enforcement** — the agent has Read/Grep/Glob/Bash/WebSearch but NOT Edit/Write/Agent. Impossible to "accidentally fix" code mid-review.
 
+[0.3.1]: https://github.com/TheMizeGuy/ios-code-review/releases/tag/v0.3.1
+[0.3.0]: https://github.com/TheMizeGuy/ios-code-review/releases/tag/v0.3.0
 [0.2.0]: https://github.com/TheMizeGuy/ios-code-review/releases/tag/v0.2.0
 [0.1.0]: https://github.com/TheMizeGuy/ios-code-review/releases/tag/v0.1.0

@@ -13,7 +13,11 @@ You are coordinating a senior iOS code review on the user's behalf. Your job is 
 - **Standard review** (default) — dispatch `ios-code-review:senior-ios-reviewer` directly via the Agent tool. Single-agent review, fastest, best for small-to-medium codebases or narrow scopes.
 - **Team review** ("ios team review" / `--team`) — YOU act as the team lead, following `agents/ios-team-lead.md` as your operating manual: map the codebase, partition into 4-10 non-overlapping scopes, dispatch `senior-ios-reviewer` sub-agents in parallel waves, run the runtime-verification and seam-review passes, consolidate into one unified report. No team-lead subagent is ever dispatched (plugin-namespaced subagents lose the Agent tool at runtime — a Claude Code platform limitation). Best for whole-project audits, multi-target projects, or pre-submission audits (30+ Swift files; 100+ is the sweet spot).
 
-Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`. Both agents are pinned `model: fable`.
+Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`. Both agents run on the session model — no model pin (session-model class).
+
+## Execution mode
+
+Agents in this plugin inherit the session model; nothing dispatches to, or waits on, a fixed model. If the session model is already the strongest available tier and the review is small enough for a single reviewer anyway, the orchestrator may run standard-mode review inline in the main context (foreground) instead of dispatching `senior-ios-reviewer`, for a review that is genuinely important or complicated enough to warrant it. Running inline does not relax the reviewer's discipline: still read-only during the review (no Edit/Write until the user selects findings to apply), still writes a durable report before concluding, still keeps the submission and engineering verdicts independent. Team mode's parallel wave, runtime-verification agent, and seam review keep dispatching through the Agent tool exactly as described below regardless of session-model tier — the seam review's cross-boundary isolation is not something to fold into an inline pass.
 
 ## Step 1: Parse arguments and detect team trigger
 
@@ -81,6 +85,8 @@ Gather these in a single message with parallel tool calls:
 9. **CI / linter config** — Glob for `.swiftlint.yml`, `.periphery.yml`, `Mintfile`, `.github/workflows/*.yml`.
 10. **Simulator availability** — `xcrun simctl list devices available | head -20` (Bash). Pass the result to the agent so it knows whether the runtime verification pass is possible.
 
+**Ultracode:** when your environment enables ultracode-style multi-agent orchestration, this whole gathering step is executor-eligible — you MAY dispatch one cheaper executor-model `general-purpose` agent at maximum reasoning effort with a SPEC/shared-context/escalation/BLACKBOARD contract to collect items 1-10 and return the raw inventory, which you validate at the gate (spot-check against an independent Glob) before building the prompt. Judgment stays with you either way.
+
 If `git` is unavailable (not a repo) and the user asked for a diff-based scope, fall back to `all` and tell the user.
 
 ## Step 3: Construct the agent prompt
@@ -96,13 +102,15 @@ SCOPE — review these files:
 ...
 ```
 
-Full prompt template (standard mode):
+Full prompt template (standard mode). Resolve the plugin's install root first (same ladder as Step 4's team-mode item 1) — the reviewer reads its `references/dimensions/` check files from it:
 
 ```
 BLACKBOARD: <project root>/.claude/blackboard/<session>/ios-review-<scope-slug>-<ts>.md
 Write your FULL report (all findings, both tables, both verdicts, tooling output) to that path via Bash heredoc BEFORE returning; final message = the path + a ≤150-word summary with both verdicts.
 
 PROJECT ROOT: <absolute path>
+
+PLUGIN ROOT: <absolute install root of the ios-senior-review plugin — references/dimensions/ lives here>
 
 PROJECT CONTEXT:
 - Project type: <iOS app / iPadOS / watchOS / tvOS / visionOS / library / SPM package>
@@ -133,7 +141,7 @@ TASK:
 3. Read the local knowledge base if one was provided above; otherwise rely on the canonical Apple sources in your system prompt.
 4. Run the static tooling if available (per your system prompt's tooling table — swiftlint, the two-step swiftlint analyze recipe, xcodebuild analyze with -project/-workspace AND -destination, periphery).
 5. If a simulator is available, run the runtime verification pass from your system prompt (build_run_sim / test_sim / screenshot at default + .accessibility3 / snapshot_ui — or xcodebuild/xcrun simctl via Bash) and verify your RUNTIME-class findings.
-6. Review across all 12 dimensions per your system prompt. Run BOTH modes unless --mode passed.
+6. Review across all 12 dimensions per your system prompt — read the references/dimensions/ files in play (your INDEX decision rules, resolved via PLUGIN ROOT above) and list them in the report header. Run BOTH modes unless --mode passed.
 7. Produce findings in the strict format: tag, evidence class, file:line, current code, suggested fix, source citation.
 8. Both summary tables, both verdicts, recommended next steps, raw tooling output — all written to the BLACKBOARD path first.
 
@@ -154,7 +162,7 @@ CONSTRAINTS:
 **Standard mode** — use the Agent tool:
 - `subagent_type`: `"ios-code-review:senior-ios-reviewer"` (safe via plugin namespace — the reviewer declares no Agent tool, so nothing is stripped)
 - `description`: `"Senior iOS review of N files (mode: <mode>)"`
-- `model`: `"fable"`
+- Omit `model` — the dispatch inherits the session model
 - `prompt`: the prompt constructed in Step 3
 - Run in **foreground** (do NOT use `run_in_background: true`)
 
@@ -165,7 +173,7 @@ CONSTRAINTS:
    - If that variable is unset in your context: Glob your Claude Code plugin cache for `**/ios-senior-review/agents/ios-team-lead.md` (or `**/ios-code-review*/agents/ios-team-lead.md`) and take the newest match
    - Last resort: the `agents/` directory of wherever this plugin repository was cloned
    Never assume one hardcoded absolute path — installs and dev checkouts live in different places.
-2. **Execute the manual's Steps 1-10** as written: map + partition (show the partition table and seam map to the user BEFORE dispatching), gather prior learnings once if a source exists, TodoWrite, dispatch the reviewer wave (all dispatches batched in one message, ≤10; `model: "fable"`; every prompt carries a `BLACKBOARD:` line), collect from blackboards with the per-agent validation gate, dispatch the single Runtime Verification agent, do the seam review yourself, consolidate with normalized verdicts, present the unified report.
+2. **Execute the manual's Steps 1-10** as written: map + partition (show the partition table and seam map to the user BEFORE dispatching), gather prior learnings once if a source exists, TodoWrite, dispatch the reviewer wave (all dispatches batched in one message, ≤10; no model field — inherits the session model; every prompt carries a `BLACKBOARD:` line), collect from blackboards with the per-agent validation gate, dispatch the single Runtime Verification agent, do the seam review yourself, consolidate with normalized verdicts, present the unified report.
 
 Do NOT run anything in the background — the user wants to see reviewers complete in real time. A team review typically takes ~15-30 minutes (one parallel wave + runtime pass + consolidation); it only stretches toward 20-100 minutes under the sequential fallback after an observed session-reset.
 
@@ -200,7 +208,7 @@ When the agent returns (standard mode) or you finish consolidation (team mode):
 
 ## Notes on agent behavior
 
-- Both agents are fresh-context, pinned `model: fable`. They do NOT see this conversation. Everything they need goes in the dispatch prompt.
+- Both agents are fresh-context, running on the session model (no model pin). They do NOT see this conversation. Everything they need goes in the dispatch prompt.
 - `senior-ios-reviewer` has Read, Grep, Glob, Bash, XcodeBuildMCP (simulator verification, when configured), WebSearch, WebFetch, TodoWrite. It does NOT have Edit/Write/Agent — by design; it writes its blackboard report via Bash heredoc.
 - The team-lead role is played by YOU with your own session tools; `agents/ios-team-lead.md` is its manual, not a dispatch target.
 - Both modes run BOTH review modes by default: App Review Simulation + Senior Engineering Review. Pass `--mode submission` or `--mode engineering` to limit.
