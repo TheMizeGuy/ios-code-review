@@ -1,7 +1,7 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-session--model-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
@@ -98,6 +98,7 @@ Team mode follows the same install → invoke → output → apply → verify sh
 | Report says "RUNTIME checks unverified" | No simulator was available, or `xcodebuild` hit its first-run license prompt | Run `sudo xcodebuild -runFirstLaunch` once locally, confirm a simulator exists with `xcrun simctl list devices available`, then re-run |
 | Findings don't cite any local documentation | No local knowledge-base path was given in the dispatch prompt | Pass the path to your own notes/vault directory in the prompt — the reviewer will read and cite it alongside the built-in Apple sources; without one, findings still cite Apple guidelines and `references/dimensions/` |
 | Report never appears, only a short pointer message | The full report lives at the blackboard path in the pointer message | Open that path — final chat messages truncate around 60KB, the blackboard file is the report of record |
+| Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (5-15 min in standard mode) | Wait for the completion notification. If the session was interrupted, the report (partial or full) is at the blackboard path from the dispatch prompt |
 | Team review says a seam finding is unresolved | Should not happen — the manual requires every cross-scope note to be resolved before the final report | Re-run team mode; if it recurs, file an issue with the partition table from the run |
 
 ## The 12 review dimensions across 4 tiers
@@ -190,9 +191,9 @@ The agent is **read-only by design**. It has:
 
 | Tool | Purpose |
 |---|---|
-| `Read`, `Grep`, `Glob` | Read Swift files, Info.plist, entitlements, privacy manifest, schemes |
+| `Read`, `Grep`, `Glob` (or `grep`/`find` via Bash) | Read Swift files, Info.plist, entitlements, privacy manifest, schemes |
 | `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write the blackboard report via heredoc |
-| `TodoWrite` | Track findings during long reviews |
+| `TodoWrite` (when available) | Track findings during long reviews |
 | `WebSearch`, `WebFetch` | Check latest Apple guideline updates |
 | `mcp__XcodeBuildMCP__*` (optional) | The runtime verification pass — simulator build/run/test/screenshot/snapshot — when [XcodeBuildMCP](https://xcodebuildmcp.com) is configured |
 

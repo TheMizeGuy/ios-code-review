@@ -5,6 +5,16 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.3 -- 2026-09-01
+
+### Changed
+
+- **Harness alignment:** current Claude Code runs every subagent in the background and has no foreground option, so the "run in foreground / do NOT run in the background" dispatch instructions in `SKILL.md` and `agents/ios-team-lead.md` were replaced with the real contract: wait for the completion notification, never fabricate a pending reviewer's result, then read the blackboard. README gained a matching troubleshooting row.
+- **Tool-availability fallback:** some harness modes expose no `Grep`, `Glob`, or `TodoWrite` tool. The skill and both agents now state the Bash fallback (`grep -rn` / `find` / `ls`, checklist kept in the agent's own messages) once, so no step stalls on a missing tool.
+- **Descriptions trimmed to triggers:** the `review-ios` skill description no longer summarizes the dispatch workflow (every trigger phrase and the exact team-mode trigger rule were kept); the `ios-team-lead` description now leads with "NEVER dispatch this agent"; the multi-line `<example>` blocks were removed from both agents' description frontmatter. All three cut resident listing cost and remove the shortcut where an orchestrator follows the description instead of the body.
+- The orchestrator's pre-presentation validation gate now also checks the report header's `Dimension refs read:` line (or the reviewer's explicit unavailable note).
+- Wording: "both agents are pinned / fresh-context" corrected to describe the one dispatched reviewer (the team-lead manual is never dispatched).
+
 ## 0.3.2 -- 2026-07-05
 
 - Version realigned to track the private source's executor-doctrine v2 release. The mirrored content does not include the private orchestration sections that release touched -- no content change here.
