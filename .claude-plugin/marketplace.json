@@ -11,7 +11,7 @@
       "name": "ios-senior-review",
       "description": "Comprehensive iOS / iPadOS / watchOS / tvOS / visionOS code review by an agent running on the session model (always the strongest available Claude). Standard mode: single agent simulates BOTH the Apple App Review team AND a senior Apple platform engineer, with a simulator verification pass when available. Team mode (triggered by 'ios team review' or --team): the orchestrator acts as team lead, partitions the codebase into 4-10 non-overlapping scopes, dispatches senior-ios-reviewer sub-agents in one parallel wave, runs a runtime-verification pass and a seam review, and consolidates one unified report. Reviews 12 dimensions across 4 tiers, returns evidence-tagged findings with dual verdicts (submission readiness + engineering quality).",
       "source": "./ios-senior-review",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "category": "code-review",
       "keywords": [
         "ios",

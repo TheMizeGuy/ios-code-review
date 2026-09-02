@@ -1,7 +1,7 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-session--model-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
