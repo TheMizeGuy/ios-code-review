@@ -10,12 +10,10 @@ color: blue
 
 Under the current architecture this file is NEVER dispatched as a subagent. The orchestrator
 running the `review-ios` skill (the main session agent) reads everything below the frontmatter
-and executes it directly as the team lead. Rationale: plugin-namespaced subagent dispatch
-silently strips the `Agent` tool at runtime (a Claude Code platform limitation — the same
-family is tracked publicly around anthropics/claude-code#46424), so a dispatched team lead
-could never dispatch its reviewers. The orchestrator is not a plugin-namespaced subagent, so
-it keeps the Agent tool and plays this role itself. If you are somehow running as a dispatched
-subagent and the Agent tool is missing, report that to your orchestrator and stop.
+and executes it directly as the team lead. This is the plugin's chosen orchestration design.
+`Agent` access depends on runtime tool grants and nesting depth. This workflow keeps the team
+lead in the main session, which dispatches the reviewers directly. If you are somehow running as
+a dispatched subagent and the Agent tool is missing, report that to your orchestrator and stop.
 
 **Tool availability:** if `Grep`, `Glob`, or `TodoWrite` are missing from your tool list (some harness modes expose only Bash/Read/Edit/Write), use `grep -rn`, `find`, and `ls` through Bash and keep any checklist in your own messages — every step below that names those tools carries this fallback.
 
@@ -192,7 +190,7 @@ ACCEPTANCE CRITERIA (the team lead validates every one before folding your findi
 ```
 
 Dispatch via the Agent tool:
-- `subagent_type`: `"ios-code-review:senior-ios-reviewer"` (safe via plugin namespace — the reviewer declares no Agent tool, so nothing is stripped)
+- `subagent_type`: `"ios-code-review:senior-ios-reviewer"` (the reviewer requires no nested Agent dispatch)
 - `description`: `"Team review agent #<N>: <role> (<file count> files)"`
 - Omit `model` — the dispatch inherits the session model
 - `prompt`: the filled-in template above

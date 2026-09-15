@@ -182,7 +182,7 @@ An app can be `READY` for submission AND `NEEDS WORK` for engineering — those 
 |---|---|---|
 | Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and either dispatches the standard reviewer or acts as team lead per the `ios-team-lead` manual |
 | Agent | `senior-ios-reviewer` | Reviewer (runs on the session model — no model pin) that runs both modes, reads code + project artifacts, runs static tooling and the simulator verification pass, writes its report to a blackboard file, returns findings. Used directly in standard mode and as the sub-agent in team mode |
-| Agent | `ios-team-lead` | Team-lead operating manual. Read and executed by the orchestrator in team mode — never dispatched as a subagent (plugin-namespaced dispatch strips the Agent tool at runtime). Covers partitioning, the parallel-wave dispatch contract, the runtime-verification pass, the mandatory seam review, and consolidation with normalized verdicts |
+| Agent | `ios-team-lead` | Team-lead operating manual. Read and executed by the orchestrator in team mode — never dispatched as a subagent (the plugin keeps orchestration in the main session). Covers partitioning, the parallel-wave dispatch contract, the runtime-verification pass, the mandatory seam review, and consolidation with normalized verdicts |
 | Reference | `references/dimensions/` | The 12 per-dimension check tables, one file per dimension. The reviewer's system prompt keeps an INDEX (tier, core risks, selection rules) and mandates reading the files in play for each review; the reviewer lists the files it read in its report header |
 
 ## Tool access

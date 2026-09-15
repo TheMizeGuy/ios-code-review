@@ -5,6 +5,10 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.5 -- 2026-09-15
+
+- Correct the delegation rationale: Agent access depends on runtime tool grants and nesting depth. Keep the established orchestration paths, tool grants, and model/effort policy.
+
 ## 0.3.4 -- 2026-09-02
 
 - Version realigned to track the private source's 0.3.4, which withdrew a dispatch-routing clause that 0.3.3 had added there. This adaptation runs the reviewer on the session model and never carried that clause, so there is no content change here.
