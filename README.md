@@ -1,12 +1,12 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.6-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-session--model-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
 
-A [Claude Code](https://claude.com/claude-code) plugin that dispatches a senior iOS developer agent — running on the session model, always the strongest available Claude, with no model pin — to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts — and verifies runtime behavior on a real simulator via [XcodeBuildMCP](https://xcodebuildmcp.com) when available.
+A [Claude Code](https://claude.com/claude-code) plugin that dispatches a senior iOS developer agent — on the model your session chooses, with no model pin — to review your Swift / SwiftUI / UIKit code. The agent simulates **both** the Apple App Review team **and** a senior Apple platform engineer, producing two independent verdicts — and verifies runtime behavior on a real simulator via [XcodeBuildMCP](https://xcodebuildmcp.com) when available.
 
 Two dispatch modes:
 
@@ -15,7 +15,7 @@ Two dispatch modes:
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
 
-> **Note — this repo previously shipped a standalone skill (`SKILL.md`).** That skill was replaced on 2026-04-14 with a proper plugin containing an orchestrator skill and a dedicated subagent. The plugin is a strict upgrade: fresh-context reviewer, no model pin (always the strongest available Claude), read-only tool access. Old `SKILL.md` consumers should switch to the plugin via the install instructions below.
+> **Note — this repo previously shipped a standalone skill (`SKILL.md`).** That skill was replaced on 2026-04-14 with a proper plugin containing an orchestrator skill and a dedicated subagent. The plugin is a strict upgrade: fresh-context reviewer, no model pin, read-only tool access. Old `SKILL.md` consumers should switch to the plugin via the install instructions below.
 
 ## What it does
 
@@ -26,7 +26,7 @@ When you invoke the `review-ios` skill (or ask Claude to review your iOS app), t
 3. **Agent dispatch** — fresh-context subagent (session model, no pin) with read-only tools, running in two simultaneous modes:
    - **App Review Simulation** — Apple App Review team persona, checks all 5 guideline categories, top rejection causes with real-world frequencies
    - **Senior Engineering Review** — senior Apple platform engineer, checks Swift quality, Swift 6 concurrency, performance, HIG conformance, accessibility, platform integration
-4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, drives a simulator pass (build, UI tests, screenshots at default + `.accessibility3` Dynamic Type) when one is available, writes its full report to a durable blackboard file, and returns evidence-tagged findings
+4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, drives a simulator pass (build, UI tests, screenshots at default + `.accessibility3` Dynamic Type) when one is available, and returns evidence-tagged findings in its final message (an oversized report goes to a file it names)
 5. **Present results** — the orchestrator displays the verbatim report with **both** summary tables and **both** verdicts, then asks which findings you want applied
 
 ## Installation
@@ -79,8 +79,8 @@ A concrete run of the default flow, from install to applied fix:
 
 1. **Install** — follow [Installation](#installation) above, then restart Claude Code.
 2. **Invoke** — inside a Swift project, run `/ios-code-review:review-ios all` (or just ask "review my iOS app before I submit").
-3. **What happens** — the skill resolves scope to the whole project, gathers `Info.plist`/entitlements/privacy-manifest/build-settings context in parallel, then dispatches the `senior-ios-reviewer` agent with that context baked into a self-contained prompt. The agent reads every file in scope, reads the `references/dimensions/` check tables for the dimensions in play, runs `swiftlint`/`periphery`/`xcodebuild analyze` if installed, drives a simulator pass if one is available, and writes its full report to a blackboard file before returning a short pointer summary.
-4. **Output shape** — the orchestrator reads the blackboard and displays the report verbatim: a header (scope, modes run, tooling results, dimension files read, finding counts), a Submission Readiness table and an Engineering Quality table, the numbered findings themselves (tag, evidence class, file:line, current code, suggested fix, citation), both verdicts, and recommended next steps.
+3. **What happens** — the skill resolves scope to the whole project, gathers `Info.plist`/entitlements/privacy-manifest/build-settings context in parallel, then dispatches the `senior-ios-reviewer` agent with that context baked into a self-contained prompt. The agent reads every file in scope, reads the `references/dimensions/` check tables for the dimensions in play, runs `swiftlint`/`periphery`/`xcodebuild analyze` if installed, drives a simulator pass if one is available, and returns its full report.
+4. **Output shape** — the orchestrator displays the report verbatim: a header (scope, modes run, tooling results, dimension files read, finding counts), a Submission Readiness table and an Engineering Quality table, the numbered findings themselves (tag, evidence class, file:line, current code, suggested fix, citation), both verdicts, and recommended next steps.
 5. **Apply findings** — the orchestrator then asks which findings to apply (e.g., "all [R] and [R?]", "finding 3 and 7", or "skip"). Nothing is changed until you say so.
 6. **Verify** — after applying fixes, ask it to re-run the review on the same scope, or run `swiftlint`/`xcodebuild build` yourself to confirm nothing regressed.
 
@@ -97,8 +97,8 @@ Team mode follows the same install → invoke → output → apply → verify sh
 | All findings are `[R?]` instead of `[R]` | No RUNTIME/ASC evidence source was available (no simulator, no App Store Connect artifacts) | Provide a bootable simulator and/or ASC metadata in the dispatch context; `[R]` is reserved for `SOURCE`/`BUILD` evidence on purpose — this is not a bug |
 | Report says "RUNTIME checks unverified" | No simulator was available, or `xcodebuild` hit its first-run license prompt | Run `sudo xcodebuild -runFirstLaunch` once locally, confirm a simulator exists with `xcrun simctl list devices available`, then re-run |
 | Findings don't cite any local documentation | No local knowledge-base path was given in the dispatch prompt | Pass the path to your own notes/vault directory in the prompt — the reviewer will read and cite it alongside the built-in Apple sources; without one, findings still cite Apple guidelines and `references/dimensions/` |
-| Report never appears, only a short pointer message | The full report lives at the blackboard path in the pointer message | Open that path — final chat messages truncate around 60KB, the blackboard file is the report of record |
-| Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (5-15 min in standard mode) | Wait for the completion notification. If the session was interrupted, the report (partial or full) is at the blackboard path from the dispatch prompt |
+| Report never appears, only a short pointer message | The report was oversized, so the reviewer wrote it to the file named in that message | Open that path — final chat messages truncate around 60KB |
+| Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (5-15 min in standard mode) | Wait for the completion notification. If the session was interrupted, re-run the review on the same scope |
 | Team review says a seam finding is unresolved | Should not happen — the manual requires every cross-scope note to be resolved before the final report | Re-run team mode; if it recurs, file an issue with the partition table from the run |
 
 ## The 12 review dimensions across 4 tiers
@@ -181,7 +181,7 @@ An app can be `READY` for submission AND `NEEDS WORK` for engineering — those 
 | Type | Name | Purpose |
 |---|---|---|
 | Skill | `review-ios` | User-invoked entry point; gathers Apple-specific scope and either dispatches the standard reviewer or acts as team lead per the `ios-team-lead` manual |
-| Agent | `senior-ios-reviewer` | Reviewer (runs on the session model — no model pin) that runs both modes, reads code + project artifacts, runs static tooling and the simulator verification pass, writes its report to a blackboard file, returns findings. Used directly in standard mode and as the sub-agent in team mode |
+| Agent | `senior-ios-reviewer` | Reviewer that runs both modes, reads code + project artifacts, runs static tooling and the simulator verification pass, and returns findings. Used directly in standard mode and as the sub-agent in team mode |
 | Agent | `ios-team-lead` | Team-lead operating manual. Read and executed by the orchestrator in team mode — never dispatched as a subagent (the plugin keeps orchestration in the main session). Covers partitioning, the parallel-wave dispatch contract, the runtime-verification pass, the mandatory seam review, and consolidation with normalized verdicts |
 | Reference | `references/dimensions/` | The 12 per-dimension check tables, one file per dimension. The reviewer's system prompt keeps an INDEX (tier, core risks, selection rules) and mandates reading the files in play for each review; the reviewer lists the files it read in its report header |
 
@@ -192,12 +192,12 @@ The agent is **read-only by design**. It has:
 | Tool | Purpose |
 |---|---|
 | `Read`, `Grep`, `Glob` (or `grep`/`find` via Bash) | Read Swift files, Info.plist, entitlements, privacy manifest, schemes |
-| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write the blackboard report via heredoc |
+| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write an oversized report to a file via heredoc |
 | `TodoWrite` (when available) | Track findings during long reviews |
 | `WebSearch`, `WebFetch` | Check latest Apple guideline updates |
 | `mcp__XcodeBuildMCP__*` (optional) | The runtime verification pass — simulator build/run/test/screenshot/snapshot — when [XcodeBuildMCP](https://xcodebuildmcp.com) is configured |
 
-It does **not** have `Edit`, `Write`, or `Agent` access (the blackboard heredoc via Bash is its one sanctioned file output). Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
+It does **not** have `Edit`, `Write`, or `Agent` access (an oversized report, written via a Bash heredoc, is the only file it ever produces). Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
 
 ## Optional enhancements
 
@@ -213,7 +213,7 @@ Neither is required — the plugin's own `references/dimensions/` files plus the
 This repo previously shipped a standalone `SKILL.md` (469 lines loaded inline into your conversation). The plugin architecture is a strict upgrade:
 
 1. **Fresh context** — the reviewer runs in an isolated subagent that has never seen the conversation that wrote the code. No pattern blindness.
-2. **No model pin** — the agent inherits the session model, always the strongest available Claude, regardless of what your main session is running.
+2. **No model pin** — the session chooses the reviewer's model per dispatch.
 3. **Read-only enforcement** — the agent has Read but not Edit/Write. Impossible to "accidentally fix" code mid-review.
 4. **Clean orchestration** — the skill gathers project context (Info.plist, entitlements, targets, privacy manifest) and passes it to the agent. The old skill expected the main agent to do all of this itself.
 
@@ -223,4 +223,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Built by [TheMizeGuy](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system — the reviewer always runs on the strongest Claude model available to your session.
+Built by [TheMizeGuy](https://github.com/TheMizeGuy). Backed by the [Claude Code](https://claude.com/claude-code) plugin system.

@@ -13,13 +13,13 @@ You are coordinating a senior iOS code review on the user's behalf. Your job is 
 - **Standard review** (default) — dispatch `ios-code-review:senior-ios-reviewer` directly via the Agent tool. Single-agent review, fastest, best for small-to-medium codebases or narrow scopes.
 - **Team review** ("ios team review" / `--team`) — YOU act as the team lead, following `agents/ios-team-lead.md` as your operating manual: map the codebase, partition into 4-10 non-overlapping scopes, dispatch `senior-ios-reviewer` sub-agents in parallel waves, run the runtime-verification and seam-review passes, consolidate into one unified report. No team-lead subagent is ever dispatched (the plugin keeps orchestration in the main session; Agent access depends on runtime grants and nesting depth). Best for whole-project audits, multi-target projects, or pre-submission audits (30+ Swift files; 100+ is the sweet spot).
 
-Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`. Every dispatched reviewer is `senior-ios-reviewer`, running on the session model (no model pin); the team-lead manual is never dispatched, you execute it yourself.
+Both modes run BOTH App Review Simulation + Senior Engineering Review by default, controllable via `--mode`. Every dispatched reviewer is `senior-ios-reviewer`.
 
 **Tool availability:** if `Grep`, `Glob`, or `TodoWrite` are missing from your tool list (some harness modes expose only Bash/Read/Edit/Write), use `grep -rn`, `find`, and `ls` through Bash and keep any checklist in your own messages — every step below that names those tools carries this fallback.
 
-## Execution mode
+## Dispatch or inline
 
-Agents in this plugin inherit the session model; nothing dispatches to, or waits on, a fixed model. If the session model is already the strongest available tier and the review is small enough for a single reviewer anyway, the orchestrator may run standard-mode review inline in the main context instead of dispatching `senior-ios-reviewer`, for a review that is genuinely important or complicated enough to warrant it. Running inline does not relax the reviewer's discipline: still read-only during the review (no Edit/Write until the user selects findings to apply), still writes a durable report before concluding, still keeps the submission and engineering verdicts independent. Team mode's parallel wave, runtime-verification agent, and seam review keep dispatching through the Agent tool exactly as described below regardless of session-model tier — the seam review's cross-boundary isolation is not something to fold into an inline pass.
+Standard mode dispatches `senior-ios-reviewer` by default, on whichever model the session picks. When the scope is small enough that a fresh-context reviewer adds little, you can run the standard review inline instead, holding the same line: read-only until the user selects findings to apply, the full report, and independent submission and engineering verdicts. Team mode keeps its structure as described below: the reviewer wave and the runtime-verification agent are dispatched, and you read the seams between their scopes.
 
 ## Step 1: Parse arguments and detect team trigger
 
@@ -87,9 +87,9 @@ Gather these in a single message with parallel tool calls:
 9. **CI / linter config** — Glob for `.swiftlint.yml`, `.periphery.yml`, `Mintfile`, `.github/workflows/*.yml`.
 10. **Simulator availability** — `xcrun simctl list devices available | head -20` (Bash). Pass the result to the agent so it knows whether the runtime verification pass is possible.
 
-**Ultracode:** when your environment enables ultracode-style multi-agent orchestration, this whole gathering step is executor-eligible — you MAY dispatch one cheaper executor-model `general-purpose` agent at maximum reasoning effort with a SPEC/shared-context/escalation/BLACKBOARD contract to collect items 1-10 and return the raw inventory, which you validate at the gate (spot-check against an independent Glob) before building the prompt. Judgment stays with you either way.
-
 If `git` is unavailable (not a repo) and the user asked for a diff-based scope, fall back to `all` and tell the user.
+
+You can hand this gathering to one `general-purpose` helper agent when that is quicker; spot-check the inventory it returns against your own Glob before building the prompt.
 
 ## Step 3: Construct the agent prompt
 
@@ -107,8 +107,7 @@ SCOPE — review these files:
 Full prompt template (standard mode). Resolve the plugin's install root first (same ladder as Step 4's team-mode item 1) — the reviewer reads its `references/dimensions/` check files from it:
 
 ```
-BLACKBOARD: <project root>/.claude/blackboard/<session>/ios-review-<scope-slug>-<ts>.md
-Write your FULL report (all findings, both tables, both verdicts, tooling output) to that path via Bash heredoc BEFORE returning; final message = the path + a ≤150-word summary with both verdicts.
+Return your FULL report (all findings, both tables, both verdicts, tooling output) in your final message. Only if it would run past roughly 10KB, write it to a file instead (Bash heredoc) and make the final message that path plus a ≤150-word summary with both verdicts.
 
 PROJECT ROOT: <absolute path>
 
@@ -145,10 +144,10 @@ TASK:
 5. If a simulator is available, run the runtime verification pass from your system prompt (build_run_sim / test_sim / screenshot at default + .accessibility3 / snapshot_ui — or xcodebuild/xcrun simctl via Bash) and verify your RUNTIME-class findings.
 6. Review across all 12 dimensions per your system prompt — read the references/dimensions/ files in play (your INDEX decision rules, resolved via PLUGIN ROOT above) and list them in the report header. Run BOTH modes unless --mode passed.
 7. Produce findings in the strict format: tag, evidence class, file:line, current code, suggested fix, source citation.
-8. Both summary tables, both verdicts, recommended next steps, raw tooling output — all written to the BLACKBOARD path first.
+8. Both summary tables, both verdicts, recommended next steps, raw tooling output — all in the report you return.
 
 CONSTRAINTS:
-- Read-only review. Do NOT modify any files (the blackboard heredoc write is the one exception).
+- Read-only review. Do NOT modify any files (writing your own oversized report to a file is the one exception).
 - Cite authoritative sources in every finding.
 - Cite Apple guideline numbers for App Review findings.
 - Don't issue [R] from RUNTIME / ASC evidence — use [R?] (marked "verified" if you reproduced it) and state the evidence gap.
@@ -164,18 +163,18 @@ CONSTRAINTS:
 **Standard mode** — use the Agent tool:
 - `subagent_type`: `"ios-code-review:senior-ios-reviewer"` (the reviewer requires no nested Agent dispatch)
 - `description`: `"Senior iOS review of N files (mode: <mode>)"`
-- Omit `model` — the dispatch inherits the session model
+- Model: the session's choice (the plugin pins none)
 - `prompt`: the prompt constructed in Step 3
-- The Agent tool runs the reviewer in the background and re-invokes you when it completes — there is no foreground option. Wait for that completion notification; never fabricate, predict, or poll for the reviewer's result. Then continue with Step 5 from the blackboard.
+- The Agent tool runs the reviewer in the background and re-invokes you when it completes — there is no foreground option. Wait for that completion notification; never fabricate, predict, or poll for the reviewer's result. Then continue with Step 5 from its report.
 
-**Team mode** — YOU act as the team lead. Do NOT dispatch a subagent as team lead (this plugin keeps orchestration in the main session).
+**Team mode** — you act as the team lead yourself, in the main session, where the Agent tool is available for the reviewer wave (a dispatched team lead may lack it or the nesting depth to fan out).
 
 1. **Load the team lead's operating manual** — read everything after the frontmatter (the second `---`) of `agents/ios-team-lead.md`, resolved in this order:
    - `${CLAUDE_PLUGIN_ROOT}/agents/ios-team-lead.md` (the plugin's own install root — preferred)
    - If that variable is unset in your context: Glob your Claude Code plugin cache for `**/ios-senior-review/agents/ios-team-lead.md` (or `**/ios-code-review*/agents/ios-team-lead.md`) and take the newest match
    - Last resort: the `agents/` directory of wherever this plugin repository was cloned
    Never assume one hardcoded absolute path — installs and dev checkouts live in different places.
-2. **Execute the manual's Steps 1-10** as written: map + partition (show the partition table and seam map to the user BEFORE dispatching), gather prior learnings once if a source exists, TodoWrite, dispatch the reviewer wave (all dispatches batched in one message, ≤10; no model field — inherits the session model; every prompt carries a `BLACKBOARD:` line), collect from blackboards with the per-agent validation gate, dispatch the single Runtime Verification agent, do the seam review yourself, consolidate with normalized verdicts, present the unified report.
+2. **Execute the manual's Steps 1-10** as written: map + partition (show the partition table and seam map to the user BEFORE dispatching), gather prior learnings once if a source exists, TodoWrite, dispatch the reviewer wave (all dispatches batched in one message, ≤10), collect and spot-check each reviewer's report, dispatch the single Runtime Verification agent, do the seam review yourself, consolidate with normalized verdicts, present the unified report.
 
 Reviewer sub-agents complete in the background by harness design and you are re-invoked as each one lands: keep the user informed at every step (partition plan before the wave, per-agent gate results as they arrive, runtime and seam results) instead of going quiet, and never fabricate a pending reviewer's result. A team review typically takes ~15-30 minutes (one parallel wave + runtime pass + consolidation); it only stretches toward 20-100 minutes under the sequential fallback after an observed session-reset.
 
@@ -183,9 +182,9 @@ Reviewer sub-agents complete in the background by harness design and you are re-
 
 When the reviewer's completion notification arrives (standard mode) or you finish consolidation (team mode):
 
-1. **Read the blackboard file, not the truncated final message.** The blackboard is the report of record. Quick validation gate before presenting: the file exists and is substantive, the header's `Dimension refs read:` line is present (or carries the reviewer's explicit unavailable note), and 2-3 spot-checked file:line citations match the actual code. If a citation doesn't hold up, say so next to that finding rather than silently presenting it.
+1. **Take the report from the reviewer's final message** — or from the file it names, if the report was oversized. Spot-check before presenting: the header's `Dimension refs read:` line is present (or carries the reviewer's explicit unavailable note), and 2-3 file:line citations match the actual code. If a citation doesn't hold up, say so next to that finding rather than silently presenting it.
 
-2. Display the report verbatim from the blackboard. Do not summarize, condense, or reformat. The user wants the raw output including both summary tables and both verdicts.
+2. Display the report verbatim. Do not summarize, condense, or reformat. The user wants the raw output including both summary tables and both verdicts.
    - In team mode, the report includes the team partition table, consolidated tables, all findings with reporter attribution, runtime verification results, seam findings, pattern findings, and unified verdicts.
 
 3. After the report, prompt:
@@ -210,9 +209,8 @@ When the reviewer's completion notification arrives (standard mode) or you finis
 
 ## Notes on agent behavior
 
-- The dispatched reviewer is fresh-context, running on the session model (no model pin). It does NOT see this conversation — everything it needs goes in the dispatch prompt. The team-lead manual is read and executed by you in your own context, never dispatched.
-- `senior-ios-reviewer` has Read, Grep, Glob, Bash, XcodeBuildMCP (simulator verification, when configured), WebSearch, WebFetch, TodoWrite. It does NOT have Edit/Write/Agent — by design; it writes its blackboard report via Bash heredoc.
-- The team-lead role is played by YOU with your own session tools; `agents/ios-team-lead.md` is its manual, not a dispatch target.
+- The dispatched reviewer starts with a fresh context and does not see this conversation — everything it needs goes in the dispatch prompt.
+- `senior-ios-reviewer` has Read, Grep, Glob, Bash, XcodeBuildMCP (simulator verification, when configured), WebSearch, WebFetch, TodoWrite. It does NOT have Edit/Write/Agent — by design; an oversized report is the only file it ever writes, via Bash heredoc.
 - Both modes run BOTH review modes by default: App Review Simulation + Senior Engineering Review. Pass `--mode submission` or `--mode engineering` to limit.
 - Reviewer sub-agents in team mode are dispatched in one parallel wave (≤10, batched in a single message); halved sequential waves only if a session-reset/rate-limit actually occurs.
 - If the user has a local iOS knowledge base or notes directory, pass its path in the prompt — the reviewer will cite it alongside the canonical Apple sources. Without one, the review works entirely from canonical sources.
@@ -232,11 +230,10 @@ When the reviewer's completion notification arrives (standard mode) or you finis
 - Don't dispatch the agent without project context — Apple-specific findings need entitlements/plist/manifest/scheme data.
 - Don't dispatch on diff scope for an App Store submission review — Apple sees the whole app, you should too.
 - Don't dispatch team mode on narrow scope — expand to `all` per Step 1's team scope handling.
-- Don't fabricate or pre-empt a pending reviewer's result — subagents complete in the background; wait for the completion notification, then read the blackboard.
+- Don't fabricate or pre-empt a pending reviewer's result — subagents complete in the background; wait for the completion notification, then read the report.
 - Don't dispatch reviewers before showing the partition plan (team mode order is map → partition → show plan → dispatch).
 - Don't dispatch team mode on tiny codebases (< 30 Swift files) — it aborts; use standard review.
-- Don't dispatch a team-lead subagent — you ARE the team lead in team mode.
-- Don't trust a truncated final message when a blackboard exists — read the file.
+- Don't present a truncated report — if the reviewer named a file for an oversized report, read that file.
 - Don't auto-apply findings — wait for the user's explicit selection.
 - Don't mix submission and engineering findings into a single verdict — they're separately scored on purpose.
 - Don't dispatch this skill recursively.

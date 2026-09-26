@@ -5,6 +5,13 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.6 -- 2026-09-25
+
+- The session chooses the reviewer's model: no model version or "strongest available" wording remains in the skill, the agents, the manifests, or the README.
+- Reviewers return their full report in the final message and write a file only when a report is oversized; the blackboard report contract and the ultracode executor section are gone.
+- The skill's "Execution mode" section is now "Dispatch or inline": a small standard review can run inline under the same read-only discipline. The team lead's helper-agent note is short, and its restatements collapse to one statement with its reason (a dispatched team lead may lack the Agent tool or the nesting depth to fan out).
+- Removed the "What you do NOT do" lists from both agents; the two unique items (review only what you read; no wholesale rewrites) moved into Hard rules.
+
 ## 0.3.5 -- 2026-09-15
 
 - Correct the delegation rationale: Agent access depends on runtime tool grants and nesting depth. Keep the established orchestration paths, tool grants, and model/effort policy.
