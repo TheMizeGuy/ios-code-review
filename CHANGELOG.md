@@ -5,6 +5,12 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.8 -- 2026-09-29
+
+- New check for a device-only launch crash: SwiftUI running the main thread out of stack during the first render. Three consumers add up: AttributeGraph naming any attribute type of 8,192 B or more (the Swift runtime demangler it calls recurses once per nested generic level), `ModifiedContent` nesting decoded from mangled names in device Release builds, and native `_makeView` depth from modifiers wrapped around the root. Dimension 7 explains how to trace the launch path across files, which fixes work (nominal boundaries, closure-storing boundary views, observers mounted as a sibling) and which don't, and how to build a runtime-measuring guard with a positive control. A boundary view does not shrink what it holds, `some View` helpers are not boundaries, and only presenters that do not anchor to a source view move to the zero-size sibling.
+- Dimension 1 (2.1): a launch-path change, or a diff that raises a launch guard's budget, needs a Release build launched on a physical device running the oldest iOS the app's users run, cold and with restored state. Debug suites, Release on the Simulator and archives all pass on trees that crash.
+- An open launch-path `[R?]` caps the submission verdict at FIX BEFORE SUBMITTING. A Simulator runtime pass can verify but never refute it, in standard and team mode, and in team mode the launch path is always a seam.
+
 ## 0.3.6 -- 2026-09-25
 
 - The session chooses the reviewer's model: no model version or "strongest available" wording remains in the skill, the agents, the manifests, or the README.

@@ -76,6 +76,8 @@ Between 4 and 10 reviewer agents. Pick the count from total Swift file count and
 
 **Build the seam map while partitioning.** For every pair of scopes, record actual cross-references (imports, protocol conformances, shared singletons/actors, delegate calls) by Grepping type and protocol names across the partition boundaries — e.g., "Scope 3 (Auth) → Scope 6 (Networking) via `AuthTokenProvider`, files X.swift/Y.swift". You will review these seams yourself in Step 8. Non-overlapping partitions create blind seams; boundary defects (a guard on one side, an unguarded call path on the other) are exactly what no single-scope reviewer can see.
 
+The launch path is always a seam: the scope holding the `@main` App and scene root owns the Dimension 1 launch-path row, and every `ViewModifier`, `View` extension or overlay child applied to the root tree from another scope (for example a settings autosave extension) is a seam you read in Step 8.
+
 When partitioning, produce a partition table like this and show it to the user before dispatching anything:
 
 ```
@@ -216,7 +218,7 @@ Static reviewers were told not to touch the simulator (10 agents driving one sim
 - The same `PLUGIN ROOT:` line as the static wave (it may need a dimension reference file to judge a reproduction)
 - The same report-return instruction as every other dispatch
 
-Merge its results: verified items get `RUNTIME (verified)` and jump to the top of their tag class; refuted items are dropped with a note. If no simulator is available, say so in the report header — every RUNTIME `[R?]` stays open with its evidence gap named.
+Merge its results: verified items get `RUNTIME (verified)` and jump to the top of their tag class; refuted items are dropped with a note. A Simulator run can verify the launch-path stack-exhaustion crash (Dimension 7) but never refute it: builds that crashed on devices launched cleanly on the Simulator. List it for the runtime agent as device-only; a REFUTED or UNTESTED verdict from the Simulator leaves it `[R?]` "needs device Release launch", while a real reproduction still counts as verified. If no simulator is available, say so in the report header — every RUNTIME `[R?]` stays open with its evidence gap named.
 
 ### Step 8: Seam review (mandatory — you do this yourself)
 
@@ -244,6 +246,7 @@ Take the seam map from Step 2 plus every cross-scope `[~]` note from Step 6. For
   - **LIKELY READY** — 0 `[R]`, 1-2 `[R?]`, `W_norm` 0-2
   - **FIX BEFORE SUBMITTING** — 0 `[R]`, 3+ `[R?]` or `W_norm` ≥ 3
   - **WILL BE REJECTED** — 1+ `[R]` anywhere in the project
+  - An open launch-path `[R?]` (Dimension 1, "needs device Release launch") caps the verdict at **FIX BEFORE SUBMITTING** on its own and is Recommended next step 1. Uploading without that launch is the developer's explicit decision for that one build, never a LIKELY READY.
 - **Engineering Verdict** (whole project, same `W_norm`):
   - **STRONG** — `W_norm` 0-2, good `[+]` coverage
   - **ACCEPTABLE** — `W_norm` 3-5, no critical patterns
@@ -255,7 +258,7 @@ State both the raw `[W]` total and `W_norm` in the report so the math is auditab
 
 1. The consolidated table totals equal the post-dedup parsed findings list recounted per tag — recount from the list, not from the sub-agent report headers.
 2. Every seam in the Step 2 seam map appears in the seam-review subsection with a resolution; zero unresolved cross-scope `[~]` anywhere in the final report.
-3. Every runtime-pass `[R?]` verdict (REPRODUCED / REFUTED / UNTESTED) is reflected in the findings list — refuted items removed with a note, verified items promoted to the top of their tag class.
+3. Every runtime-pass `[R?]` verdict (REPRODUCED / REFUTED / UNTESTED) is reflected in the findings list — refuted items removed with a note, verified items promoted to the top of their tag class. The launch-path stack-exhaustion `[R?]` is never removed on a Simulator REFUTED; it stays open as "needs device Release launch".
 4. `W_norm` arithmetic is shown: raw total, file count, formula, result.
 5. Both verdicts recomputed from the consolidated tables — never carried over from any sub-agent.
 6. Every finding names its reporter (agent #, [seam], or Runtime Verification).

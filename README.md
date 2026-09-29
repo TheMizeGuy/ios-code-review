@@ -1,7 +1,7 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.3.6-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.8-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-session--model-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
@@ -96,6 +96,7 @@ Team mode follows the same install → invoke → output → apply → verify sh
 | Team mode aborted immediately | Scope resolved to under 30 Swift files, which is below the team-mode floor | Use standard mode instead, or point `--team` at a larger scope |
 | All findings are `[R?]` instead of `[R]` | No RUNTIME/ASC evidence source was available (no simulator, no App Store Connect artifacts) | Provide a bootable simulator and/or ASC metadata in the dispatch context; `[R]` is reserved for `SOURCE`/`BUILD` evidence on purpose — this is not a bug |
 | Report says "RUNTIME checks unverified" | No simulator was available, or `xcodebuild` hit its first-run license prompt | Run `sudo xcodebuild -runFirstLaunch` once locally, confirm a simulator exists with `xcrun simctl list devices available`, then re-run |
+| A launch-path finding stays `[R?]` after the simulator pass | By design: that crash class launched cleanly on the Simulator in every recorded case | Launch a Release build on a physical device running the oldest iOS your users run, cold and with restored state |
 | Findings don't cite any local documentation | No local knowledge-base path was given in the dispatch prompt | Pass the path to your own notes/vault directory in the prompt — the reviewer will read and cite it alongside the built-in Apple sources; without one, findings still cite Apple guidelines and `references/dimensions/` |
 | Report never appears, only a short pointer message | The report was oversized, so the reviewer wrote it to the file named in that message | Open that path — final chat messages truncate around 60KB |
 | Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (5-15 min in standard mode) | Wait for the completion notification. If the session was interrupted, re-run the review on the same scope |
@@ -107,7 +108,7 @@ Team mode follows the same install → invoke → output → apply → verify sh
 
 | # | Dimension | Examples |
 |---|---|---|
-| 1 | App Store Rejection Risk | Top 10 rejection causes with frequencies (Guidelines 1-5), current SDK/toolchain gate, age-rating questionnaire, Sign in with Apple, UIWebView, IAP + StoreKit 2 lifecycle, AI data-sharing disclosure (5.1.2(i)), UGC/anonymous chat (1.2), Live Activities anti-spam (4.5.3), 4.3(b) saturated categories, EU DMA |
+| 1 | App Store Rejection Risk | Top 10 rejection causes with frequencies (Guidelines 1-5), device Release launch for launch-path changes, current SDK/toolchain gate, age-rating questionnaire, Sign in with Apple, UIWebView, IAP + StoreKit 2 lifecycle, AI data-sharing disclosure (5.1.2(i)), UGC/anonymous chat (1.2), Live Activities anti-spam (4.5.3), 4.3(b) saturated categories, EU DMA |
 | 2 | Privacy & Data Protection | Privacy manifest + full Required Reason API code table (incl. the App-Group `1C8F.1` gotcha), ATT timing/UX, purpose strings, tracking domains, third-party SDK manifests, policy-vs-wire drift check, account deletion, GDPR/CCPA |
 | 3 | Entitlements & Info.plist | Entitlement-to-feature fit, export compliance (`ITSAppUsesNonExemptEncryption`), code-signing diagnostics (ITMS-90034/90046), arm64/binary-size upload gates, `UIBackgroundModes`, `CFBundleURLTypes`, scene manifest |
 | 4 | Security | Keychain, ATS, certificate pinning, screenshot protection, OSLog `.private`, biometric auth, hardcoded secrets |
@@ -118,7 +119,7 @@ Team mode follows the same install → invoke → output → apply → verify sh
 |---|---|---|
 | 5 | Human Interface Guidelines | NavigationStack, Liquid Glass adoption + legibility (iOS 26), semantic colors, SF Symbols, alerts, layout direction, app icon (dark + tinted variants, Icon Composer), launch screen, localization |
 | 6 | Accessibility | VoiceOver (incl. `.onTapGesture` invisibility, `.combine` swallowing interactive children), Dynamic Type, contrast, touch targets, Reduce Motion, Voice Control, `performAccessibilityAudit` integrity, Accessibility Nutrition Labels, WCAG 2.1 AA + 2.2 |
-| 7 | SwiftUI / UIKit Patterns | `@Observable`, `NavigationStack`, `.task {}`, `LazyVStack`, `#Preview`, `UIViewRepresentable` cleanup |
+| 7 | SwiftUI / UIKit Patterns | `@Observable`, `NavigationStack`, `.task {}`, `LazyVStack`, `#Preview`, `UIViewRepresentable` cleanup, launch-path view type size and depth (the device-only stack-exhaustion launch crash) |
 | 8 | Deep Linking & Extensions | Universal links, AASA, `.onOpenURL`, App Clip budget, NSE, widgets, share/action extensions |
 
 ### Tier 3 — Engineering Quality (does not affect submission verdict)
@@ -145,7 +146,7 @@ Every finding states its evidence basis. The agent will **not** issue `[R]` (rej
 | `BUILD` | Requires compiled artifact (entitlement signing, binary scan, app size, SDK version gate) |
 | `SERVER` | Requires external system (AASA validation, push payload, backend) |
 | `ASC` | Requires App Store Connect data (privacy labels, age rating, screenshots, metadata) |
-| `RUNTIME` | Requires device/simulator (crashes, safe areas, contrast, haptics, Dynamic Type layout) — marked `RUNTIME (verified)` when the reviewer reproduced it on the simulator |
+| `RUNTIME` | Requires device/simulator (crashes, safe areas, contrast, haptics, Dynamic Type layout) — marked `RUNTIME (verified)` when the reviewer reproduced it on the simulator; the launch-path stack-exhaustion crash has only reproduced on physical devices, so a simulator pass never clears it (it stays `[R?]` "needs device Release launch") |
 
 ## Severity levels
 
@@ -166,6 +167,7 @@ The agent produces **two independent verdicts**:
 - **LIKELY READY** — 0 `[R]`, 1-2 `[R?]`, 0-2 `[W]`
 - **FIX BEFORE SUBMITTING** — 0 `[R]`, 3+ `[W]` or 3+ `[R?]`
 - **WILL BE REJECTED** — 1+ `[R]` confirmed from `SOURCE`/`BUILD`
+- An open launch-path `[R?]` (Dimension 1, "needs device Release launch") caps the verdict at **FIX BEFORE SUBMITTING** on its own and is Recommended next step 1. Uploading without that launch is the developer's explicit decision for that one build, never a LIKELY READY.
 
 **Engineering Verdict:**
 - **STRONG** — 0-2 `[W]`, good `[+]` coverage

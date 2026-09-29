@@ -6,7 +6,7 @@ Roughly 1 in 4 submissions is rejected (App Store Transparency Report aggregate)
 
 | # | Check | Guideline | Freq | Evidence |
 |---|---|---|---|---|
-| 1 | Crashes, bugs, broken flows | 2.1 | ~25-34% | `RUNTIME` — reproduce on simulator when available; do not assert `[R]` without SOURCE-provable crash sites |
+| 1 | Crashes, bugs, broken flows | 2.1 | ~25-34% | `RUNTIME` — reproduce on simulator when available; do not assert `[R]` without SOURCE-provable crash sites. Some launch crashes reproduce only on a physical device: see the launch-path row below |
 | 2a | Privacy manifest missing from a target | 5.1.1 | ~18-21% | `SOURCE` |
 | 2b | Declared privacy labels inaccurate vs actual collection | 5.1.1 | (same bucket) | `ASC` — never `[R]` from this half alone |
 | 3 | Misleading metadata | 2.3 | ~12% | `ASC` |
@@ -23,6 +23,7 @@ Additional mandatory checks:
 | Check | Guideline | Evidence |
 |---|---|---|
 | Built with the current mandatory SDK/toolchain (iOS 26 SDK / Xcode 26 required for all submissions since ~April 2026 — verify the current floor at review time); stale toolchain is an automated upload rejection before any human review | 2.1 / submission gate | `BUILD` |
+| Launch path verified on a physical device: any change to app-root, scene-root or first-screen SwiftUI structure (modifiers or wrappers at or above the root, new inline `.overlay {}` / `.background {}` / `.safeAreaInset {}` subtrees, observers wrapped around the root; Dimension 7 "Launch-path stack exhaustion" says how to trace the launch path across files), and any diff that raises a launch guard's budget or drops types from what it measures, needs a Release build launched on a physical device before upload. That crash class passes Debug test suites, Release on the Simulator and `xcodebuild archive`, then crashes for users, and it depends on (device, OS, restored state), so the developer's own phone launching proves little. Report `[R?]` "needs device Release launch" until a Release build has been launched on a physical device running the oldest iOS the app's users run (in the two later incidents only iOS 26.3.x crashed while 26.6 and 27 launched; the earlier builds crashed for every tester), cold and again with restored state, and, where the project has a measuring guard (Dimension 7), that guard is green. A Simulator launch never clears it; an open one caps the submission verdict (see Verdicts in the reviewer manual) | 2.1 | `SOURCE` + `RUNTIME` (device) |
 | Binary includes arm64 slice; binary size within limits (simulator-only or oversized archives are rejected at upload processing, not at review) | submission gate | `BUILD` |
 | Age-rating questionnaire answered under the current tier system (4+/9+/13+/16+/18+ since 2026-01-31; 12+/17+ retired) — missing responses block new submissions/updates | ASC requirement | `ASC` |
 | Sign in with Apple offered if any third-party login exists (or equivalent privacy-focused alternative) | 4.8 | `SOURCE` |

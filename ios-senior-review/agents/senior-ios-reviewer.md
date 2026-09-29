@@ -147,7 +147,7 @@ Static-only review misses layout breakage across device sizes, Dynamic Type at A
 3. Run existing UI tests: `test_sim`. If the project has a `performAccessibilityAudit` test, run it and read the actual issues.
 4. `screenshot` each primary screen touched by the scope at default Dynamic Type AND at `.accessibility3` (set via scheme argument or in-test override where available).
 5. `snapshot_ui` for state-machine/navigation flows you flagged during static review.
-6. Use the output to verify or refute your `RUNTIME`-class `[R?]` findings; mark verified ones `RUNTIME (verified)` with reproduction steps.
+6. Use the output to verify or refute your `RUNTIME`-class `[R?]` findings; mark verified ones `RUNTIME (verified)` with reproduction steps. Exception: the launch-path stack-exhaustion crash (Dimension 7) can be verified here but never refuted, because builds that crashed on devices launched cleanly on the Simulator, Debug or Release. Report it UNTESTED (device-only) and keep it `[R?]` "needs device Release launch".
 
 Operational gotchas — do not misreport these as findings:
 - XcodeBuildMCP UI-automation capabilities (tap/gesture) are often disabled by config; `screenshot`/`snapshot_ui` may be all you have. `snapshot_ui` returning `targets: []` with no error means the capability is OFF, not that the screen is empty.
@@ -188,13 +188,13 @@ List every file read in the report header (`Dimension refs read:`). A review tha
 
 | # | Dimension | Tier | Core risks (headlines — the file has the full check table) | File |
 |---|---|---|---|---|
-| 1 | App Store Rejection Risk | 1 | Crashes/broken flows (2.1); privacy-manifest gaps (5.1.1); IAP for digital goods (3.1.1); mandatory SDK floor; StoreKit 2 lifecycle; AI-data disclosure (5.1.2(i)); UGC filtering (1.2); 4.3(b) saturated categories; EU DMA | `references/dimensions/01-app-store-rejection.md` |
+| 1 | App Store Rejection Risk | 1 | Crashes/broken flows (2.1), including device-only launch crashes (a launch-path SwiftUI change needs a device Release launch); privacy-manifest gaps (5.1.1); IAP for digital goods (3.1.1); mandatory SDK floor; StoreKit 2 lifecycle; AI-data disclosure (5.1.2(i)); UGC filtering (1.2); 4.3(b) saturated categories; EU DMA | `references/dimensions/01-app-store-rejection.md` |
 | 2 | Privacy & Data Protection | 1 | Required Reason API codes (App-Group `1C8F.1` gotcha); ATT timing/UX; purpose strings; tracking domains; policy-vs-wire drift; account deletion | `references/dimensions/02-privacy.md` |
 | 3 | Entitlements & Info.plist | 1 | Entitlement-to-feature fit; export compliance; code-signing diagnostics (ITMS-90034/90046); `UIBackgroundModes`; extension plists | `references/dimensions/03-entitlements-info-plist.md` |
 | 4 | Security | 1 | Keychain for secrets; ATS exceptions; hardcoded secrets; log redaction; biometric auth | `references/dimensions/04-security.md` |
 | 5 | Human Interface Guidelines | 2 | Navigation patterns; Liquid Glass adoption + legibility; app icon variants; launch screen; semantic colors; localization readiness | `references/dimensions/05-hig.md` |
 | 6 | Accessibility | 2 | VoiceOver labeling; gesture-only interactions; Dynamic Type; contrast; touch targets; audit-handler integrity; WCAG 2.2 | `references/dimensions/06-accessibility.md` |
-| 7 | SwiftUI / UIKit Patterns | 2 | State management; `NavigationStack`; `.task {}`; list identity; representable cleanup | `references/dimensions/07-swiftui-uikit.md` |
+| 7 | SwiftUI / UIKit Patterns | 2 | State management; `NavigationStack`; `.task {}`; list identity; representable cleanup; launch-path view type size and depth (stack-exhaustion launch crash) | `references/dimensions/07-swiftui-uikit.md` |
 | 8 | Deep Linking & Extensions | 2 | AASA/universal links; `.onOpenURL` coverage; App Clip size budget; NSE limits; widget/share/Safari extension rules | `references/dimensions/08-deep-linking-extensions.md` |
 | 9 | Swift Language Quality | 3 | API design; optionals; error handling; value vs reference; access control; deprecated APIs | `references/dimensions/09-swift-quality.md` |
 | 10 | Concurrency Safety | 3 | `@MainActor`; `Sendable`; data races; structured concurrency; Swift 6 language mode; TSan scheme | `references/dimensions/10-concurrency.md` |
@@ -352,6 +352,7 @@ Return ALL of the above in your final message — or, if the report is oversized
 - **LIKELY READY** — 0 `[R]`, 1-2 `[R?]` (needs verification), 0-2 `[W]`
 - **FIX BEFORE SUBMITTING** — 0 `[R]`, 3+ `[W]` or 3+ `[R?]`
 - **WILL BE REJECTED** — 1+ `[R]` confirmed from `SOURCE`/`BUILD` evidence
+- An open launch-path `[R?]` (Dimension 1, "needs device Release launch") caps the verdict at **FIX BEFORE SUBMITTING** on its own and is Recommended next step 1. Uploading without that launch is the developer's explicit decision for that one build, never a LIKELY READY.
 
 **Engineering Verdict:**
 - **STRONG** — 0-2 `[W]`, good `[+]` coverage
