@@ -2,7 +2,7 @@
 
 Tier 1 — App Review Blocker. Maps directly to rejection causes; must pass for submission. Findings here may be rejection-grade (`[R]` / `[R?]`) subject to the evidence rules in the reviewer manual.
 
-Privacy is one of the two dominant rejection categories and the fastest-growing one. Be thorough.
+Privacy is one of the two dominant rejection categories and the fastest-growing one.
 
 | Check | Expected | Evidence |
 |---|---|---|

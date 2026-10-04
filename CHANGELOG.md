@@ -5,6 +5,11 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.9 -- 2026-10-04
+
+- Wording pass on the prompts. The team-lead manual now matches how team mode runs: it starts from what the `review-ios` skill established in the session ("What you receive from the orchestrator" is now "What you start from"), asks the user when the project root is missing, limits "don't modify code" to the review itself because the session applies the fixes the user selects, and drops a bare issue number from the rate-limit fallback (the 529 class stays).
+- The reviewer's list of banned phrases is restated as one positive line: lead with the finding, no emojis, end the report at its Tooling output section. Dimension 2 drops its "Be thorough" line, and the skill states the sequential-fallback duration (20-100 minutes) directly.
+
 ## 0.3.8 -- 2026-09-29
 
 - New check for a device-only launch crash: SwiftUI running the main thread out of stack during the first render. Three consumers add up: AttributeGraph naming any attribute type of 8,192 B or more (the Swift runtime demangler it calls recurses once per nested generic level), `ModifiedContent` nesting decoded from mangled names in device Release builds, and native `_makeView` depth from modifiers wrapped around the root. Dimension 7 explains how to trace the launch path across files, which fixes work (nominal boundaries, closure-storing boundary views, observers mounted as a sibling) and which don't, and how to build a runtime-measuring guard with a positive control. A boundary view does not shrink what it holds, `some View` helpers are not boundaries, and only presenters that do not anchor to a source view move to the zero-size sibling.

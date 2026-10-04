@@ -176,7 +176,7 @@ CONSTRAINTS:
    Never assume one hardcoded absolute path — installs and dev checkouts live in different places.
 2. **Execute the manual's Steps 1-10** as written: map + partition (show the partition table and seam map to the user BEFORE dispatching), gather prior learnings once if a source exists, TodoWrite, dispatch the reviewer wave (all dispatches batched in one message, ≤10), collect and spot-check each reviewer's report, dispatch the single Runtime Verification agent, do the seam review yourself, consolidate with normalized verdicts, present the unified report.
 
-Reviewer sub-agents complete in the background by harness design and you are re-invoked as each one lands: keep the user informed at every step (partition plan before the wave, per-agent gate results as they arrive, runtime and seam results) instead of going quiet, and never fabricate a pending reviewer's result. A team review typically takes ~15-30 minutes (one parallel wave + runtime pass + consolidation); it only stretches toward 20-100 minutes under the sequential fallback after an observed session-reset.
+Reviewer sub-agents complete in the background by harness design and you are re-invoked as each one lands: keep the user informed at every step (partition plan before the wave, per-agent gate results as they arrive, runtime and seam results) instead of going quiet, and never fabricate a pending reviewer's result. A team review typically takes ~15-30 minutes (one parallel wave + runtime pass + consolidation); the sequential fallback after an observed session-reset takes 20-100 minutes.
 
 ## Step 5: Present results
 
