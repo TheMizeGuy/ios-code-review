@@ -5,6 +5,10 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.10 -- 2026-10-10
+
+- Version parity with the private 0.3.10, which removed the Serena MCP tools and the "activate serena" steps from its copy of the agents and the skill. This copy never carried them: it already maps the project and traces callers with Glob, Grep and Read, so the prompts here are unchanged.
+
 ## 0.3.9 -- 2026-10-04
 
 - Wording pass on the prompts. The team-lead manual now matches how team mode runs: it starts from what the `review-ios` skill established in the session ("What you receive from the orchestrator" is now "What you start from"), asks the user when the project root is missing, limits "don't modify code" to the review itself because the session applies the fixes the user selects, and drops a bare issue number from the rate-limit fallback (the 529 class stays).
