@@ -1,7 +1,7 @@
 # ios-code-review
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Plugin Version](https://img.shields.io/badge/version-0.3.9-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
+[![Plugin Version](https://img.shields.io/badge/version-0.3.11-blue.svg)](https://github.com/TheMizeGuy/ios-code-review/releases)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://claude.com/claude-code)
 [![Model](https://img.shields.io/badge/model-session--model-orange.svg)](https://www.anthropic.com/claude)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20visionOS-lightgrey.svg)](https://developer.apple.com)
@@ -10,8 +10,8 @@ A [Claude Code](https://claude.com/claude-code) plugin that dispatches a senior 
 
 Two dispatch modes:
 
-- **Standard** (default) — single `senior-ios-reviewer` agent. 5-15 min. Best for diffs, features, or codebases under ~80 Swift files.
-- **Team** (requires the exact phrase "ios team review" or `--team`) — the orchestrator acts as team lead per the `ios-team-lead` manual: maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches `senior-ios-reviewer` sub-agents in one parallel wave, adds a dedicated runtime-verification agent and a mandatory seam review at the partition boundaries, and consolidates findings into one unified report with single submission + engineering verdicts. ~15-30 min. Best for whole-project audits, multi-target apps, and pre-submission reviews (30+ Swift files; 100+ is the sweet spot).
+- **Standard** (default) — single `senior-ios-reviewer` agent. Typically 15-25 min. Best for diffs, features, or codebases under ~80 Swift files.
+- **Team** (requires the exact phrase "ios team review" or `--team`) — the orchestrator acts as team lead per the `ios-team-lead` manual: maps the codebase, partitions it into 4-10 non-overlapping scopes, dispatches `senior-ios-reviewer` sub-agents in one parallel wave, adds a dedicated runtime-verification agent and a mandatory seam review at the partition boundaries, and consolidates findings into one unified report with single submission + engineering verdicts. Typically 45 min or more (a parallel wave of reviewers, each about as long as a standard review, then the runtime pass and consolidation). Best for whole-project audits, multi-target apps, and pre-submission reviews (30+ Swift files; 100+ is the sweet spot).
 
 The reviewer is a fresh-context subagent with strict **read-only** tool access. Findings come back evidence-tagged with specific guideline numbers, concrete Swift rewrites, and citations. The orchestrator presents the report and asks which findings to apply — nothing is auto-fixed without your explicit selection.
 
@@ -26,7 +26,7 @@ When you invoke the `review-ios` skill (or ask Claude to review your iOS app), t
 3. **Agent dispatch** — fresh-context subagent (session model, no pin) with read-only tools, running in two simultaneous modes:
    - **App Review Simulation** — Apple App Review team persona, checks all 5 guideline categories, top rejection causes with real-world frequencies
    - **Senior Engineering Review** — senior Apple platform engineer, checks Swift quality, Swift 6 concurrency, performance, HIG conformance, accessibility, platform integration
-4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, drives a simulator pass (build, UI tests, screenshots at default + `.accessibility3` Dynamic Type) when one is available, and returns evidence-tagged findings in its final message (an oversized report goes to a file it names)
+4. **The agent** reads code, runs `swiftlint`/`periphery`/`xcodebuild analyze` if available, drives a simulator pass (build, UI tests, screenshots at default + `.accessibility3` Dynamic Type) when one is available, and returns evidence-tagged findings in its final message (an oversized report goes to a file it names, outside your project). In team mode the team lead runs the build-backed tools (`xcodebuild analyze`, `periphery`) once before the wave, each reviewer runs only `swiftlint lint` on its own files, and only the runtime-verification agent drives the simulator
 5. **Present results** — the orchestrator displays the verbatim report with **both** summary tables and **both** verdicts, then asks which findings you want applied
 
 ## Installation
@@ -84,7 +84,7 @@ A concrete run of the default flow, from install to applied fix:
 5. **Apply findings** — the orchestrator then asks which findings to apply (e.g., "all [R] and [R?]", "finding 3 and 7", or "skip"). Nothing is changed until you say so.
 6. **Verify** — after applying fixes, ask it to re-run the review on the same scope, or run `swiftlint`/`xcodebuild build` yourself to confirm nothing regressed.
 
-Team mode follows the same install → invoke → output → apply → verify shape; the difference is Step 3 (map → partition → show the plan → dispatch a wave of reviewers → runtime pass → seam review → consolidate) and a richer Step 4 output (partition table, per-agent attribution, seam findings, pattern findings).
+Team mode follows the same install → invoke → output → apply → verify shape; the difference is Step 3 (map → partition → show the plan → run the build-backed tooling once → dispatch a wave of reviewers → runtime pass → seam review → consolidate) and a richer Step 4 output (partition table, per-agent attribution, seam findings, pattern findings).
 
 ## Troubleshooting
 
@@ -99,7 +99,8 @@ Team mode follows the same install → invoke → output → apply → verify sh
 | A launch-path finding stays `[R?]` after the simulator pass | By design: that crash class launched cleanly on the Simulator in every recorded case | Launch a Release build on a physical device running the oldest iOS your users run, cold and with restored state |
 | Findings don't cite any local documentation | No local knowledge-base path was given in the dispatch prompt | Pass the path to your own notes/vault directory in the prompt — the reviewer will read and cite it alongside the built-in Apple sources; without one, findings still cite Apple guidelines and `references/dimensions/` |
 | Report never appears, only a short pointer message | The report was oversized, so the reviewer wrote it to the file named in that message | Open that path — final chat messages truncate around 60KB |
-| Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (5-15 min in standard mode) | Wait for the completion notification. If the session was interrupted, re-run the review on the same scope |
+| A review or a team scope is reported as not completed or declined | The reviewer ended without a report, was stopped on purpose, or a safeguard declined the request. The orchestrator retries once (never after a deliberate stop), then reviews the scope itself, or, after a declined request, reports it as not reviewed | Re-run the review on the same scope when you want another attempt |
+| Nothing visible after "Dispatching senior-ios-reviewer" | Subagents run in the background; the orchestrator is re-invoked only when the reviewer completes (typically 15-25 min in standard mode) | Wait for the completion notification. If the session was interrupted, re-run the review on the same scope |
 | Team review says a seam finding is unresolved | Should not happen — the manual requires every cross-scope note to be resolved before the final report | Re-run team mode; if it recurs, file an issue with the partition table from the run |
 
 ## The 12 review dimensions across 4 tiers
@@ -176,7 +177,7 @@ The agent produces **two independent verdicts**:
 
 An app can be `READY` for submission AND `NEEDS WORK` for engineering — those are different concerns and the agent keeps them separate on purpose. Tier 3-4 findings never affect the submission verdict.
 
-**Team-mode aggregation:** `[R]` and `[R?]` are absolute (rejection risks don't dilute with project size). `[W]` thresholds apply to a per-100-files normalized count above 100 files, and pattern findings (the same issue across many files) count once — so ten independently-clean scopes can't sum their way into a failing verdict on scattered one-off warnings. The report shows both the raw total and the normalized figure.
+**Team-mode aggregation:** `[R]` and `[R?]` are absolute (rejection risks don't dilute with project size). `[W]` thresholds apply to a per-100-files normalized count above 100 files, and pattern findings (the same issue across many files) count once — so ten independently-clean scopes can't sum their way into a failing verdict on scattered one-off warnings. Each verdict normalizes its own `[W]` count (submission from Tiers 1-2, engineering from Tiers 3-4), so engineering warnings never move the submission verdict. The report shows both raw totals and both normalized figures.
 
 ## Components
 
@@ -194,12 +195,12 @@ The agent is **read-only by design**. It has:
 | Tool | Purpose |
 |---|---|
 | `Read`, `Grep`, `Glob` (or `grep`/`find` via Bash) | Read Swift files, Info.plist, entitlements, privacy manifest, schemes |
-| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write an oversized report to a file via heredoc |
-| `TodoWrite` (when available) | Track findings during long reviews |
+| `Bash` | Run `swiftlint`, `periphery`, `xcodebuild analyze`, `xcrun simctl`; write an oversized report, a build log or simulator screenshots to a scratch directory outside the project |
+| `TaskStop` | Stop a long build the harness moved to the background, so it does not outlive the review |
 | `WebSearch`, `WebFetch` | Check latest Apple guideline updates |
 | `mcp__XcodeBuildMCP__*` (optional) | The runtime verification pass — simulator build/run/test/screenshot/snapshot — when [XcodeBuildMCP](https://xcodebuildmcp.com) is configured |
 
-It does **not** have `Edit`, `Write`, or `Agent` access (an oversized report, written via a Bash heredoc, is the only file it ever produces). Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
+It does **not** have `Edit`, `Write`, or `Agent` access (scratch files outside your project, such as an oversized report, a build log or simulator screenshots, are the only files it writes). Findings are advisory — the orchestrator (your main Claude session) applies them based on your selection.
 
 ## Optional enhancements
 
