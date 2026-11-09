@@ -5,6 +5,36 @@ All notable changes to this repository will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.11 -- 2026-11-09
+
+Adaptation of the private 0.3.11: an audit of every prompt file against Anthropic's migration guidance for the newest Claude models, which read instructions closely and apply them as written.
+
+### Harness mismatches
+
+- `TodoWrite` is gone from both agents' tool lists, the skill's `allowed-tools` and the prose, because current Claude Code does not offer it by default. The team lead keeps its agent checklist in whatever checklist tool the session has, or in its own messages.
+- The reviewer has `TaskStop`. Claude Code can move a long Bash command to the background, and a build moved there could outlive the review. The reviewer gives builds a timeout long enough to finish, waits for a backgrounded command instead of starting a second copy, and stops what it started before it returns.
+- The runtime pass spells out its Bash path for projects without the XcodeBuildMCP tools: `xcodebuild` into a scratch `-derivedDataPath`, `xcrun simctl` to boot, install, launch and take screenshots, and only the UI tests that cover the scope. When that is not possible either, the header says `simulator pass=UNAVAILABLE (no XcodeBuildMCP tools)`.
+
+### Defects
+
+- Team reviewers do not build. Up to ten reviewers running `xcodebuild analyze` at the same time collided on one DerivedData and queued behind each other. The team lead, or one helper, runs `xcodebuild analyze` and `periphery scan` once before the wave and passes the output path in a `Project-wide tooling` line; reviewers run only `swiftlint lint` on their own files, the runtime-verification agent is the only agent that builds after the wave, and the report header gains `Project-wide tooling:`.
+- Team verdicts normalize each verdict's own `[W]` count: the submission verdict from the Tiers 1-2 table, the engineering verdict from the Tiers 3-4 table. A single combined count let engineering warnings fail the submission verdict.
+- An oversized report goes to the path the dispatch names, or to a scratch directory outside the reviewed project, with one file per team reviewer and per runtime agent. Every file a reviewer writes (the report, a build log, a derived-data folder, simulator screenshots) stays outside the project, so none of them turns up in the next `diff`-scope review.
+- The SwiftLint Analyze recipe is one Bash command that builds into a scratch `-derivedDataPath` and reads the log from there. It does not write `xcodebuild.log` into the working directory and does not `clean` the developer's build products.
+- An inline standard review reads `agents/senior-ios-reviewer.md` as its manual, since the skill alone does not carry the report format, the dimension rules or the verdict formulas.
+- Run times match measured runs: a standard review typically takes 15-25 minutes and a team review 45 minutes or more.
+
+### Fit with how current Claude models read instructions
+
+- A reviewer that returns no report (stopped early, delivered nothing, an empty or cut-off message, or a request the API declined) gets one retry in both modes. Standard mode then runs the review inline, or, after a safeguard refusal, tells you the review was declined. Team mode hands the scope to the team lead and never dispatches a third attempt; a scope whose retry was declined is marked `not reviewed (declined)`. A reviewer stopped on purpose, or one that reports an empty scope, is not retried. `Runtime pass:` gains `NOT COMPLETED`.
+- The reviewer does not stop to ask, since its final message is its only channel. An empty scope returns at once with a one-line message; an unclear scope or a missing project root is derived, stated in the report header and reviewed, without widening a file list it was given.
+- "Show code" states its exceptions: a finding with nothing to quote writes `Current code: none`, a `[+]` takes no fix, and a secret value is never copied into a report but quoted as `<redacted>`. Demo-account credentials are confirmed, not copied.
+- The summary beside an oversized report carries both verdicts, the per-tag finding counts and the findings to read first, in place of a fixed word cap.
+- The team lead shows the partition plan and dispatches in the same turn: the plan informs, it does not ask for approval.
+- The `KNOWLEDGE BASE` dispatch line says "none" when no local knowledge base exists, instead of being left out.
+- Helper-agent suggestions are trimmed: the skill's helper for context gathering is removed, and the team lead's helper note covers only a long mechanical job such as the project-wide tooling run.
+- A known-answer replay ran against 0.3.10: three real bug-fix cases from an iOS app were hidden and the reviewer reviewed the code as it stood before each fix. On the newest Claude model it named the defect in all three cases and followed the report format in every run.
+
 ## 0.3.10 -- 2026-10-10
 
 - Version parity with the private 0.3.10, which removed the Serena MCP tools and the "activate serena" steps from its copy of the agents and the skill. This copy never carried them: it already maps the project and traces callers with Glob, Grep and Read, so the prompts here are unchanged.
